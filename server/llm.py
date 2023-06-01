@@ -1,6 +1,6 @@
 from flask import Flask
 import os
-from llama_index import SimpleDirectoryReader, GPTSimpleVectorIndex
+from llama_index import SimpleDirectoryReader, GPTSimpleVectorIndex, GoogleDocsReader
 from flask import request
 from flask_cors import CORS
 import config
@@ -14,10 +14,11 @@ index_name = "indices"
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/query", methods=["GET"])
+@app.route("/query", methods=["POST"])
 def query_index():
   global index
-  query_text = request.args.get("question", None)
+  request_data = request.get_json()
+  query_text = request_data['question']
   if query_text is None:
     return "No text found:(", 400
   response = index.query(query_text)
@@ -36,7 +37,13 @@ def initialize_index():
         index = GPTSimpleVectorIndex.load_from_disk(index_name)
     # if no index file, we index all documents
     else:
+        # document_ids = ['13CJ05ef5AvSQjWmkBAPCWMMjJTYm-qWwVeIkmLtcK64']
+        # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
+        # index = GPTSimpleVectorIndex.from_documents(google_doc)
+        
+        # directory files
         documents = SimpleDirectoryReader("./documents").load_data()
+        documents.extend(SimpleDirectoryReader("./add_docs").load_data())
         index = GPTSimpleVectorIndex.from_documents(documents)
         index.save_to_disk(index_name)
 

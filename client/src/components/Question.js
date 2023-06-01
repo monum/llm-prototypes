@@ -1,4 +1,6 @@
+import Avatar from "./Avatar";
 import TextCard from "./TextCard";
+import dino_avatar from '../assets/dino.jpg';
 
 export default function Question({question}) {
     return (
@@ -7,7 +9,9 @@ export default function Question({question}) {
                 <div className="">
                     <TextCard text={question}/>
                 </div>
-                <h3 className="ms-4">User</h3>
+                <h3 className="">
+                    <Avatar img={dino_avatar} size={40}/>
+                </h3>
             </div>
         </div>
     )

@@ -4,7 +4,7 @@ export default function SideBar({showSessions, setShowSessions}) {
     return (
         <div className="bg-light d-flex">
             <h2 class="">
-                🤖 Boston LLM
+                Past sessions
             </h2>
             <div class='btn btn-sm' onClick={() => setShowSessions(!showSessions)}>{'<'}</div>
             <Sessions sessions={[]}/>

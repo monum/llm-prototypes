@@ -6,8 +6,9 @@ import Dialogue from './components/Dialogue';
 import http from './services/HttpServices';
 import NavBar from './components/NavBar';
 import Sessions from './components/Sessions';
-import { Container, Divider, Link, TextField } from '@mui/material';
+import { Container, Divider, IconButton, InputAdornment, Link, Stack, TextField } from '@mui/material';
 import SideBar from './SideBar';
+import InputBox from './components/InputBox';
 
 function App() {
 
@@ -25,10 +26,13 @@ function App() {
       setDialogues([...dialogues, newDialogue]);
 
       /* get answer from GPT and post it */
-      http.get(`/query?question=${question}`)
-      .then(({data}) => {
+      http.post('/query', {question: question})
+      .then((res) => {
+        console.log(res);
+        const {data} = res;
         // update newDialogue with the answer returned from GPT
         newDialogue.answer = data;
+
         setDialogues([...dialogues, newDialogue])
       })
       .catch((error) => {
@@ -51,19 +55,18 @@ function App() {
           {'>'}
         </div>
         }
-        <div className={showSessions ? 'col-8 justify-content-center' : 'col-12 justify-content-center'}> {/* style={{minHeight: '100%', height:'100%'}} */}
-          <h1> ask me a question! </h1>
-
+        <div className={showSessions ? 'col-8' : 'col-12'}> {/* style={{minHeight: '100%', height:'100%'}} */}
           <div className='d-flex justify-content-center'>
-            <div className='col-8'>
-              {dialogues.map((dialogue) => <Dialogue dialogue={dialogue}/>)}
+            <div className={showSessions ? 'col-10' : 'col-7'}>
+              <h3 class="mt-2"> 🤖 Boston LLM </h3>
+              <Stack style={{maxHeight: '670px', height:'800px', overflow: 'auto'}}> 
+                {dialogues.map((dialogue) => <Dialogue dialogue={dialogue}/>)}
+              </Stack>
+              {/** style={{position: 'fixed', left: '30%', bottom: '10%'}}*/}
+              <InputBox question={question} setQuestion={setQuestion} addQuestion={addQuestion} />
             </div>
           </div>
 
-          <div class="d-flex col-5" style={{position: 'fixed', left: '30%', bottom: '10%'}}> {/** style={{position: 'fixed', left: '50%', bottom: '10%'}} */}
-            <TextField label='Ask me a question!' value={question} onChange={(e) => setQuestion(e.target.value)} style={{ width: "90%" }}/>
-            <div className="btn btn-success ms-3 p-3" onClick={addQuestion}> post </div>
-          </div>
         </div>
       </div>
     </div>
