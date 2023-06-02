@@ -9,12 +9,13 @@ import Sessions from './components/Sessions';
 import { Container, Divider, IconButton, InputAdornment, Link, Stack, TextField } from '@mui/material';
 import SideBar from './SideBar';
 import InputBox from './components/InputBox';
+import Answer from './components/Answer';
 
 function App() {
 
   const [dialogues, setDialogues] = useState([]);
   const [question, setQuestion] = useState('');
-  const [showSessions, setShowSessions] = useState(true);
+  const [showSessions, setShowSessions] = useState(false);
 
   const addQuestion = () => {
     if (question) {
@@ -28,7 +29,6 @@ function App() {
       /* get answer from GPT and post it */
       http.post('/query', {question: question})
       .then((res) => {
-        console.log(res);
         const {data} = res;
         // update newDialogue with the answer returned from GPT
         newDialogue.answer = data;
@@ -59,8 +59,9 @@ function App() {
           <div className='d-flex justify-content-center'>
             <div className={showSessions ? 'col-10' : 'col-7'}>
               <h3 class="mt-2"> 🤖 Boston LLM </h3>
-              <Stack style={{maxHeight: '670px', height:'800px', overflow: 'auto'}}> 
-                {dialogues.map((dialogue) => <Dialogue dialogue={dialogue}/>)}
+              <Stack style={{maxHeight: '650px', height:'800px', overflow: 'auto'}} className="mt-4"> 
+                <Answer answer={'Hi there! How can I help you?'}/>
+                {dialogues.map((dialogue, i) => <Dialogue dialogue={dialogue} showFeedbackIcons={i == dialogues.length - 1}/>)}
               </Stack>
               {/** style={{position: 'fixed', left: '30%', bottom: '10%'}}*/}
               <InputBox question={question} setQuestion={setQuestion} addQuestion={addQuestion} />

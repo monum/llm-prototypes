@@ -1,6 +1,6 @@
 from flask import Flask
 import os
-from llama_index import SimpleDirectoryReader, GPTSimpleVectorIndex, GoogleDocsReader
+from llama_index import SimpleDirectoryReader, GPTSimpleVectorIndex, GoogleDocsReader, download_loader
 from flask import request
 from flask_cors import CORS
 import config
@@ -41,9 +41,18 @@ def initialize_index():
         # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
         # index = GPTSimpleVectorIndex.from_documents(google_doc)
         
+
         # directory files
         documents = SimpleDirectoryReader("./documents").load_data()
         documents.extend(SimpleDirectoryReader("./add_docs").load_data())
+
+        # wikipedia
+        # WikipediaReader = download_loader("WikipediaReader")
+        # documents.extend(WikipediaReader().load_data(pages=['Boston']))
+
+        
+
+        # create indices
         index = GPTSimpleVectorIndex.from_documents(documents)
         index.save_to_disk(index_name)
 

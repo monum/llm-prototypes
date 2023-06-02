@@ -5,7 +5,7 @@ import boston_avatar from '../assets/boston_icon.jpg';
 export default function Answer({answer}) {
     return (
             <div className="d-flex">
-                <h3 >
+                <h3>
                     <AvatarIcon img={boston_avatar} size={40}/>
                 </h3>
                 <div style={{maxWidth: '90%'}}>
