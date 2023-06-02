@@ -2,9 +2,9 @@
 export default function NavBar() {
     return (
         <nav className="navbar navbar-light bg-light d-flex justify-content-center">
-            <h2 class="">
+            <h3 class="">
                 🤖 Boston LLM
-            </h2>
+            </h3>
         </nav>
     )
 }
