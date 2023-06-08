@@ -16,12 +16,16 @@ export default function Feedback({dialogue}) {
         alert(`user disliked this following dialogue: \n ${dialogue.question} ${dialogue.answer}`)
     }
 
+    const handleFeedback = (positive) => {
+        
+    }
+
 
     return (
         <>
         <Stack spacing={3} direction='row'>
-            <ThumbUpOffAltIcon onClick={handleThumbUp}/>
-            <ThumbDownOffAltIcon onClick={handleThumpDown}/>
+            <ThumbUpOffAltIcon onClick={() => handleFeedback(true)}/>
+            <ThumbDownOffAltIcon onClick={() => handleFeedback(false)}/>
             <DriveFileRenameOutlineIcon onClick={() => setModalOpen(true)}/>
         </Stack>
         <Modal
