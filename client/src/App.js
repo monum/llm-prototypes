@@ -6,10 +6,14 @@ import Dialogue from './components/Dialogue';
 import http from './services/HttpServices';
 import NavBar from './components/NavBar';
 import Sessions from './components/Sessions';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import MenuIcon from '@mui/icons-material/Menu';
 import { Container, Divider, IconButton, InputAdornment, Link, Stack, TextField } from '@mui/material';
 import SideBar from './SideBar';
 import InputBox from './components/InputBox';
 import Answer from './components/Answer';
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css';
 
 function App() {
 
@@ -44,6 +48,7 @@ function App() {
 
   return (
     <div className="App">
+      <ToastContainer />
       {/* <NavBar/> */}
       <div className='d-flex' >
         {showSessions ? 
@@ -51,9 +56,9 @@ function App() {
             <SideBar showSessions={showSessions} setShowSessions={setShowSessions} />
           </div>
         : 
-        <div onClick={() => setShowSessions(!showSessions)}>
-          {'>'}
-        </div>
+          <div className="btn" onClick={() => setShowSessions(!showSessions)} style={{height: '50px'}}>
+            <MenuIcon/>
+          </div>
         }
         <div className={showSessions ? 'col-8' : 'col-12'}> {/* style={{minHeight: '100%', height:'100%'}} */}
           <div className='d-flex justify-content-center'>
