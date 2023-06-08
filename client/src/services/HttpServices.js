@@ -1,5 +1,5 @@
 import axios from "axios";
-const config = require('./config.json');
+const config = require('../config.json');
 
 // axios.defaults.headers.common['x-token'] = localStorage.getItem("token");
 

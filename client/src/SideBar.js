@@ -36,7 +36,7 @@ export default function SideBar({showSessions, setShowSessions}) {
     };
     
     return (
-        <div className="bg-light p-3">
+        <div className="bg-light p-2">
             <div className="d-flex">
                 <div className="btn" onClick={() => setShowSessions(!showSessions)}>
                     <ArrowBackIcon/>

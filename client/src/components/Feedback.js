@@ -4,20 +4,38 @@ import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutli
 import FlagIcon from '@mui/icons-material/Flag';
 import { Button, Card, Icon, Modal, Stack, TextField } from '@mui/material';
 import { useState } from 'react';
+import { toastSuccess, toastWarn } from '../services/NotificationServices';
+const config = require('../config.json');
 
 export default function Feedback({dialogue}) {
     const [modalOpen, setModalOpen] = useState(false);
 
-    const handleThumbUp = () => {
-        alert(`user liked this following dialogue: \n ${dialogue.question} ${dialogue.answer}`)
-    }
-
-    const handleThumpDown = () => {
-        alert(`user disliked this following dialogue: \n ${dialogue.question} ${dialogue.answer}`)
-    }
-
-    const handleFeedback = (positive) => {
-        
+    const handleFeedback = async (positive) => {
+        const d = new Date();
+        const data = {
+            "fields" :{
+                "Id": ""+d.getTime(),
+                "Question": dialogue.question,
+                "Answer": dialogue.answer,
+                "Positive": positive
+            }
+        }
+        try {
+            fetch(`https://api.airtable.com/v0/${config.baseId}/${config.tableName}`, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    "Authorization": "Bearer " + config.api_key,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            }).then((res) => res.json()).then((res) => {
+                console.log(res);
+                toastSuccess("Thank you for your feedback!")
+            })
+        } catch (e) {
+            toastWarn("error: "+e);
+        }
     }
 
 
