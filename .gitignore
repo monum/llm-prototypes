@@ -4,3 +4,4 @@
 
 /server/config.py
 /server/credentials.json
+/server/__pycache__
