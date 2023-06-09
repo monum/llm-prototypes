@@ -24,34 +24,37 @@ from llama_index.node_parser import SimpleNodeParser
 from llama_index import VectorStoreIndex, SimpleDirectoryReader, load_index_from_storage
 from llama_index.storage.storage_context import StorageContext
 
-# to run script: python /Users/omgitsmonday/projects/llm-prototypes/server/llm.py
+'''
+to run script: 
+python /Users/omgitsmonday/projects/llm-prototypes/server/llm.py
+'''
 
+# api set up
 # NOTE: for local testing only
 os.environ['OPENAI_API_KEY'] = config.OPENAI_API_KEY # remove key when push to remote
 openai.api_key = config.OPENAI_API_KEY 
-index = None
-index_name = "indices"
+
+# set up flask app
 app = Flask(__name__)
 CORS(app)
 
+####################################### routes ########################################
+
 @app.route("/query", methods=["POST"])
 def query_agent():
-  # global index
   global agent
   request_data = request.get_json()
   query_text = request_data['question']
   if query_text is None:
     return "No text found:(", 400
-  # response = index.query(query_text)
-  # return str(response), 200
-  print(query_text)
+
+  print("User query: " + query_text)
   response = agent.run(input=query_text)
   print(response)
   return response, 200
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    # global manager
     if 'file' not in request.files:
         return "Please send a POST request with a file", 400
 
@@ -80,126 +83,7 @@ def upload_file():
 
     return "File inserted!", 200
 
-# @app.route("/feedback", methods=["POST"])
-# def submit_feedback():
-#     request_data = request.get_json()
-#     temp = {
-        
-#     }
-    
-
-# helper methods
-
-def initialize_agent():
-    ''' 
-    use LlamaIndex as a query tool, augment the model with specific data
-    '''
-    # global index
-    try:
-        # this will loaded the persisted stores from persist_dir
-        storage_context = StorageContext.from_defaults(
-            persist_dir="./store"
-        )
-        # then load the index object
-        index = load_index_from_storage(storage_context)
-        print('success')
-    # if no index file, we index all documents
-    except:
-        # document_ids = ['13CJ05ef5AvSQjWmkBAPCWMMjJTYm-qWwVeIkmLtcK64']
-        # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
-        # index = GPTSimpleVectorIndex.from_documents(google_doc)
-        
-
-        # directory files
-        documents = SimpleDirectoryReader("./documents").load_data()
-        # documents.extend(SimpleDirectoryReader("./add_docs").load_data())
-
-
-        # create storage context using default stores
-        storage_context = StorageContext.from_defaults(
-            docstore=SimpleDocumentStore(),
-            vector_store=SimpleVectorStore(),
-            index_store=SimpleIndexStore(),
-        )
-
-        # create parser and parse document into nodes 
-        parser = SimpleNodeParser()
-        nodes = parser.get_nodes_from_documents(documents)
-
-        # create (or load) docstore and add nodes
-        storage_context.docstore.add_documents(nodes)
-
-        # wikipedia
-        # WikipediaReader = download_loader("WikipediaReader")
-        # documents.extend(WikipediaReader().load_data(pages=['Boston']))
-
-        # split documents into chunks
-        # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
-        # docs = text_splitter.split_documents(documents)
-
-        # build index
-        index = VectorStoreIndex(nodes, storage_context=storage_context)
-        # save index
-        index.storage_context.persist(persist_dir="./store")
-    build_agent(index)
-    return
-
-def build_agent(index):
-    global agent
-    query_engine = index.as_query_engine()
-
-    tool_config = IndexToolConfig(
-        query_engine=query_engine, 
-        name="Llama",
-        description=f"useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start",
-        tool_kwargs={"return_direct": True}
-    )
-    llama_tool = LlamaIndexTool.from_tool_config(tool_config)
-    
-    # web search tool
-    from langchain import SerpAPIWrapper
-    search = SerpAPIWrapper(serpapi_api_key=config.SERPAPI_API_KEY)
-    search_tool = Tool(
-            name = "Search",
-            func=search.run,
-            description="useful for when you need to answer questions about general knowledge, things that might be on the news, common sense knowledge"
-        )
-    
-    # ChatGPT tool
-    from langchain.tools import AIPluginTool
-    gpt_tool = AIPluginTool.from_plugin_url("https://www.klarna.com/.well-known/ai-plugin.json")
-
-    toolkit = [llama_tool, search_tool, gpt_tool]
-
-    # IndexToolConfig(
-    #     query_engine=graph_query_engine,
-    #     name=f"Graph Index",
-    #     description="useful for when you want to answer queries that require analyzing multiple SEC 10-K documents for Uber.",
-    #     tool_kwargs={"return_direct": True}
-    # )
-
-    # set Logging to DEBUG for more detailed outputs
-    memory = ConversationBufferMemory(memory_key="chat_history")
-    llm = ChatOpenAI(temperature=0)
-    
-    agent_cls = AGENT_TO_CLASS["conversational-react-description"]
-    agent_obj = agent_cls.from_llm_and_tools(llm, toolkit)
-    agent = AgentExecutor.from_agent_and_tools(
-        agent=agent_obj,
-        tools=toolkit,
-        memory=memory,
-        verbose=True,
-        handle_parsing_errors="Check your output and make sure it conforms! If you think you do not need any tool, just return your thought."
-    )
-    # agent = create_llama_chat_agent(
-    #     toolkit,
-    #     llm,
-    #     memory=memory,
-    #     verbose=True
-    # )
-    return
-
-
+# @app.route("/get_files", methods=["GET"])
 # def retrieve_doc():
 #     # initialize pinecone
 #     pinecone.init(
@@ -216,42 +100,123 @@ def build_agent(index):
 #     query = "What did the president say about Ketanji Brown Jackson"
 #     docs = docsearch.similarity_search(query)
 
+
+##################################### index building ######################################
+
+def initialize_llama_index():
+    ''' 
+    use LlamaIndex as a query tool, augment the model with specific data
+    '''
+    try:
+        # this will loaded the persisted stores from persist_dir
+        storage_context = StorageContext.from_defaults(
+            persist_dir="./store"
+        )
+        # then load the index object
+        return load_index_from_storage(storage_context)
+    # if no index file, we index all documents
+    except:
+        # document_ids = ['13CJ05ef5AvSQjWmkBAPCWMMjJTYm-qWwVeIkmLtcK64']
+        # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
+        # index = GPTSimpleVectorIndex.from_documents(google_doc)
+        # wikipedia
+        # WikipediaReader = download_loader("WikipediaReader")
+        # documents.extend(WikipediaReader().load_data(pages=['Boston']))
+
+        # directory files
+        documents = SimpleDirectoryReader("./documents").load_data()
+        # documents.extend(SimpleDirectoryReader("./add_docs").load_data())
+        # split documents into chunks
+
+        # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
+        # docs = text_splitter.split_documents(documents)
+        return rebuild_index_with_docs(documents, "./store")
+
+def rebuild_index_with_docs(documents, persist_dir):
+    # create storage context using default stores
+    storage_context = StorageContext.from_defaults(
+        docstore=SimpleDocumentStore(),
+        vector_store=SimpleVectorStore(),
+        index_store=SimpleIndexStore(),
+    )
+
+    # create parser and parse document into nodes 
+    parser = SimpleNodeParser()
+    nodes = parser.get_nodes_from_documents(documents)
+
+    # create (or load) docstore and add nodes
+    storage_context.docstore.add_documents(nodes)
+
+    # build index
+    index = VectorStoreIndex(nodes, storage_context=storage_context)
+    # save index
+    index.storage_context.persist(persist_dir=persist_dir)
+    
+    return index
+
 def insert_into_index(doc_text, doc_id=None):
     ''' 
     insert file uploaded to index
     '''
     print(doc_text)
     document = SimpleDirectoryReader(input_files=[doc_text]).load_data()[0]
-    if doc_id is not None:
-        document.doc_id = doc_id
-
-    # index.insert(document)
-    # index.storage_context.persist()
-
-    # this will loaded the persisted stores from persist_dir
-    storage_context = StorageContext.from_defaults(
-        persist_dir="./store"
-    )
-    # create parser and parse document into nodes 
-    parser = SimpleNodeParser()
-    nodes = parser.get_nodes_from_documents([document])
-
-    # build index
-    storage_context.docstore.add_documents(nodes)
-    index = VectorStoreIndex(nodes, storage_context=storage_context)
-    # save index
-    index.storage_context.persist(persist_dir="./store")
+    index = rebuild_index_with_docs([document], "./store")
     
-
     # import pinecone
     # from llama_index.vector_stores import PineconeVectorStore
     # api_key = 
     # pinecone.init(api_key=api_key, environment="us-west1-gcp")
     build_agent(index)
 
+##################################### tool building ######################################
 
+def build_llama_tool(index):
+    query_engine = index.as_query_engine()
+    tool_config = IndexToolConfig(
+        query_engine=query_engine, 
+        name="Llama",
+        description=f"useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start",
+        tool_kwargs={"return_direct": True}
+    )
+    return LlamaIndexTool.from_tool_config(tool_config)
+
+def build_web_search_tool():
+    from langchain import SerpAPIWrapper
+    search = SerpAPIWrapper(serpapi_api_key=config.SERPAPI_API_KEY)
+    return Tool(
+        name = "Search",
+        func=search.run,
+        description="useful for when you need to answer questions about general knowledge, things that might be on the news, common sense knowledge"
+    )
+
+def build_GPT_tool():
+    from langchain.tools import AIPluginTool
+    return AIPluginTool.from_plugin_url("https://www.klarna.com/.well-known/ai-plugin.json")
+
+def build_llm():
+    return ChatOpenAI(temperature=0)
+
+##################################### agent building ######################################
+
+def build_agent(index):
+    '''
+    create tools and build toolkit, then create an agent
+    '''
+    global agent
+    
+    toolkit = [build_llama_tool(index), build_web_search_tool(), build_GPT_tool()]
+
+    agent = initialize_agent(
+        agent="conversational-react-description",
+        tools=toolkit,
+        llm=build_llm(),
+        memory=ConversationBufferMemory(memory_key="chat_history"),
+        verbose=True,
+        handle_parsing_errors="Check your output and make sure it conforms! If you think you do not need any tool, just return your thought."
+    )
 
 
 if __name__ == "__main__":
-    initialize_agent()
+    index = initialize_llama_index()
+    build_agent(index)
     app.run(host="0.0.0.0", port=5601)
