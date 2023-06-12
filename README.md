@@ -6,6 +6,8 @@ The current prototype is a conversational chatbot built with langchain's agent f
 
 <img src="./client/public/demo/06-12-server.png"/>
 
+<img src="./client/public/demo/06-12-airtable.png"/>
+
 Week 1 Progress:
 
 - [x]  On top of the current implementation in Flask, make sure the model runs with multiple file inputs, and potentially with file input of different formats.
