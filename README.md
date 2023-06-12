@@ -2,6 +2,10 @@
 
 The current prototype is a conversational chatbot built with langchain's agent framework. We aim to create a chatbot for internal use to help government workers answer public inquiries from Boston residents. The agent is given an array of tools including government data query tool (data indexed into vector store using LlamaIndex, stored and queried in Pinecone), serpapi web search tool, and a ChatGPT plugin. When asked a question, the agent is able to make choices as to which tool to use and explain its thought process in a transparent manner.
 
+<img src="./client/public/demo/06-12-client.png"/>
+
+<img src="./client/public/demo/06-12-server.png"/>
+
 Week 1 Progress:
 
 - [x]  On top of the current implementation in Flask, make sure the model runs with multiple file inputs, and potentially with file input of different formats.
