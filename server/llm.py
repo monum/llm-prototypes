@@ -8,19 +8,17 @@ from langchain.embeddings import OpenAIEmbeddings
 from pathlib import Path
 import openai
 import config
-# import pinecone
 
 from langchain.agents import Tool, AgentExecutor, initialize_agent
 from langchain.agents.loading import AGENT_TO_CLASS, load_agent
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from langchain.chat_models import ChatOpenAI
-from llama_index.langchain_helpers.agents import IndexToolConfig, LlamaToolkit, create_llama_chat_agent, LlamaIndexTool
 
+from llama_index.langchain_helpers.agents import IndexToolConfig, LlamaToolkit, create_llama_chat_agent, LlamaIndexTool
 from llama_index.storage.docstore import SimpleDocumentStore
 from llama_index.storage.index_store import SimpleIndexStore
 from llama_index.vector_stores import SimpleVectorStore
 from llama_index.node_parser import SimpleNodeParser
-
 from llama_index import VectorStoreIndex, SimpleDirectoryReader, load_index_from_storage
 from llama_index.storage.storage_context import StorageContext
 
@@ -38,6 +36,29 @@ openai.api_key = config.OPENAI_API_KEY
 app = Flask(__name__)
 CORS(app)
 
+# set up pinecone vector store
+import pinecone 
+from langchain.vectorstores import Pinecone
+from langchain.document_loaders import TextLoader
+from langchain.text_splitter import CharacterTextSplitter
+
+# initialize pinecone
+pinecone.init(
+    api_key=config.PINECONE_API_KEY,  # find at app.pinecone.io
+    environment=config.PINECONE_ENVIRONMENT
+)
+# initialize pinecone index (treat as a table)
+index_name = "llm-prototypes"
+if index_name not in pinecone.list_indexes():
+    # we create a new index
+    pinecone.create_index(
+        name=index_name,
+        metric='cosine',
+        dimension=1536  # 1536 dim of text-embedding-ada-002
+    )
+pinecone_index_table = pinecone.GRPCIndex(index_name)
+print(pinecone_index_table.describe_index_stats())
+pinecone.describe_index(index_name)
 ####################################### routes ########################################
 
 @app.route("/query", methods=["POST"])
@@ -123,7 +144,6 @@ def initialize_llama_index():
         # WikipediaReader = download_loader("WikipediaReader")
         # documents.extend(WikipediaReader().load_data(pages=['Boston']))
 
-        # directory files
         documents = SimpleDirectoryReader("./documents").load_data()
         # documents.extend(SimpleDirectoryReader("./add_docs").load_data())
         # split documents into chunks
@@ -133,10 +153,23 @@ def initialize_llama_index():
         return rebuild_index_with_docs(documents, "./store")
 
 def rebuild_index_with_docs(documents, persist_dir):
+    # pine cone store
+    # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    # docs = text_splitter.split_documents(documents)
+    # embeddings = OpenAIEmbeddings()
+    # docsearch = Pinecone.from_documents(docs, embeddings, index_name="llm-prototypes")
+
     # create storage context using default stores
+    from llama_index.vector_stores import PineconeVectorStore
+
+    # vector store in pinecone
+    vector_store = PineconeVectorStore(
+        pinecone_index=pinecone_index_table,
+        add_sparse_vector=True,
+    )
     storage_context = StorageContext.from_defaults(
         docstore=SimpleDocumentStore(),
-        vector_store=SimpleVectorStore(),
+        vector_store=vector_store,
         index_store=SimpleIndexStore(),
     )
 
@@ -145,7 +178,7 @@ def rebuild_index_with_docs(documents, persist_dir):
     nodes = parser.get_nodes_from_documents(documents)
 
     # create (or load) docstore and add nodes
-    storage_context.docstore.add_documents(nodes)
+    # storage_context.docstore.add_documents(nodes)
 
     # build index
     index = VectorStoreIndex(nodes, storage_context=storage_context)
@@ -203,6 +236,7 @@ def build_agent(index):
     create tools and build toolkit, then create an agent
     '''
     global agent
+    from langchain.agents import AgentType
     
     toolkit = [build_llama_tool(index), build_web_search_tool(), build_GPT_tool()]
 
