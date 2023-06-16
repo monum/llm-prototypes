@@ -14,6 +14,7 @@ import StarBorder from '@mui/icons-material/StarBorder';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import File from './components/upload/File';
 import Wikipedia from './components/upload/Wikipedia';
+import Webpage from './components/upload/Webpage';
 
 export default function SideBar({showSessions, setShowSessions}) {
     function UploadMethodSelectPanel() {
@@ -48,7 +49,7 @@ export default function SideBar({showSessions, setShowSessions}) {
                         </ListItemIcon>
                         <ListItemText primary="Wikipedia" />
                     </ListItemButton>
-                    <ListItemButton onClick={() => setUploadMethod('web_page')}>
+                    <ListItemButton onClick={() => setUploadMethod('url')}>
                         <ListItemIcon>
                         <InboxIcon />
                         </ListItemIcon>
@@ -71,15 +72,14 @@ export default function SideBar({showSessions, setShowSessions}) {
     }
 
 
-    const [open, setOpen] = React.useState(true);
     const [uploadMethod, setUploadMethod] = React.useState("");
-
 
     return (
         <div className='bg-light'>
             {uploadMethod === "" && <UploadMethodSelectPanel/>}
             {uploadMethod === "file" && <File setUploadMethod={setUploadMethod}/>}
             {uploadMethod === "wikipedia" && <Wikipedia setUploadMethod={setUploadMethod}/>}
+            {uploadMethod === "url" && <Webpage setUploadMethod={setUploadMethod}/>}
         </div>
     );
 }

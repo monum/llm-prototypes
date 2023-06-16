@@ -64,15 +64,18 @@ pinecone.describe_index(index_name)
 
 @app.route("/query", methods=["POST"])
 def query_agent():
-  global agent
-  request_data = request.get_json()
-  query_text = request_data['question']
-  if query_text is None:
-    return "No text found:(", 400
+    global agent
+    request_data = request.get_json()
+    query = request_data['question']
+    if query is None:
+        return "No text found:(", 400
 
-  print("User query: " + query_text)
-  response = agent.run(input=query_text)
-  return response, 200
+    print("User query: " + query)
+    response = agent.run(input=query)
+    build_pinecone_retrieval_tool()
+    # response = agent({"question":query}, return_only_outputs=True)
+    # return f"{response['answer']} \n Source: {response['sources']}", 200
+    return response, 200
 
 @app.route("/upload/file", methods=["POST"])
 def upload_file():
@@ -128,6 +131,24 @@ def upload_wiki():
 
     return "File inserted!", 200
 
+@app.route("/upload/url", methods=["POST"])
+def upload_url():
+    try:
+        source = request.form.get('url', None)
+        label = request.form.get("label", None)
+        description = request.form.get("description", None)
+
+        BeautifulSoupWebReader = download_loader("BeautifulSoupWebReader")
+        loader = BeautifulSoupWebReader()
+        documents = loader.load_data(urls=[source])
+
+        index = get_index(documents, './store', source, label, description)
+        build_agent(index)
+    except Exception as e:
+        print(e)
+        return "Error: {}".format(str(e)), 500
+
+    return "File inserted!", 200
 # @app.route("/get_files", methods=["GET"])
 # def retrieve_doc():
 #     # initialize pinecone
@@ -220,6 +241,8 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
 
 ##################################### tool building ######################################
 def build_pinecone_retrieval_tool(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
+    global agent
+
     # https://docs.pinecone.io/docs/langchain
     from langchain.embeddings.openai import OpenAIEmbeddings
 
@@ -246,22 +269,17 @@ def build_pinecone_retrieval_tool(): # https://python.langchain.com/en/latest/mo
 
     from langchain.chains import RetrievalQAWithSourcesChain
 
-    qa = RetrievalQAWithSourcesChain.from_chain_type(
+    agent = RetrievalQAWithSourcesChain.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=vectorstore.as_retriever()
     )
 
-    # qa = RetrievalQA.from_chain_type(
-    #     llm=llm,
-    #     chain_type="stuff",
-    #     retriever=vectorstore.as_retriever(),
-    #     return_source_documents=True
-    # )
     from langchain.tools import tool
     @tool("retrieval", return_direct=True)
     def retrieval(query: str) -> str:
-        """useful for useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start, and when you are asked to include evidence of original source file or text and where you find certain information"""
+        '''use this tool to answer all questions, if cannot answer, move on to other tools'''
+        # """useful for useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start, and when you are asked to include evidence of original source file or text and where you find certain information"""
         response = qa({"question":query}, return_only_outputs=True)
         # return f"{response['result']} \nSrouce: {response['source_documents'][0]}"
         return f"{response['answer']} \n Source: {response['sources']}"
@@ -304,7 +322,7 @@ def build_agent(index):
     global agent
     # from langchain.agents import AgentType
     
-    toolkit = [build_pinecone_retrieval_tool(), build_web_search_tool(), build_GPT_tool()] # build_llama_tool(index)
+    toolkit = [build_pinecone_retrieval_tool(), build_llama_tool(index), build_web_search_tool(), build_GPT_tool()]
 
     agent = initialize_agent(
         agent="conversational-react-description",
