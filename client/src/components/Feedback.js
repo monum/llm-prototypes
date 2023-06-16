@@ -16,7 +16,8 @@ export default function Feedback({dialogue}) {
             "fields" :{
                 "Id": ""+d.getTime(),
                 "Question": dialogue.question,
-                "Answer": dialogue.answer,
+                "Answer": dialogue.response.answer,
+                "Source": dialogue.response.sources,
                 "Positive": positive
             }
         }

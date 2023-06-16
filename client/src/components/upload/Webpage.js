@@ -37,6 +37,7 @@ export default function Webpage({setUploadMethod}) {
         console.log(response)
         if (response.status == 200) {
             toastSuccess('Page added!');
+            setUploadMethod("")
         } else {
             toastWarn(`${response.status}: ${response.statusText}`);
         }

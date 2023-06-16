@@ -71,11 +71,19 @@ def query_agent():
         return "No text found:(", 400
 
     print("User query: " + query)
-    response = agent.run(input=query)
-    build_pinecone_retrieval_tool()
-    # response = agent({"question":query}, return_only_outputs=True)
-    # return f"{response['answer']} \n Source: {response['sources']}", 200
-    return response, 200
+    docs = get_similar_docs(query)
+    metadata = [doc.metadata for doc in docs]
+    response = agent({"question":query}, return_only_outputs=True)
+    print(response)
+    res = {
+        "answer": response['answer'],
+        "sources": response['sources'],
+        "id": [meta['id'] for meta in metadata],
+        "label": [meta['label'] for meta in metadata],
+        "description": [meta['description'] for meta in metadata],
+        "date": [meta['date'] for meta in metadata]
+    }
+    return res, 200
 
 @app.route("/upload/file", methods=["POST"])
 def upload_file():
@@ -96,7 +104,6 @@ def upload_file():
         document = SimpleDirectoryReader(input_files=[filepath]).load_data()[0]
         source = label + '/' + document.extra_info['file_name']
         index = get_index([document], "./store", source, label, description)
-        build_agent(index)
     except Exception as e:
         print(e)
         # cleanup temp file
@@ -108,6 +115,7 @@ def upload_file():
     if filepath is not None and os.path.exists(filepath):
         os.remove(filepath)
 
+    build_chain()
     return "File inserted!", 200
 
 @app.route("/upload/wiki", methods=["POST"])
@@ -124,11 +132,10 @@ def upload_wiki():
         document = loader.load_data(pages=[page_name])
         # print(document[0])
         index = get_index(document, './store', source, label, description)
-        build_agent(index)
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500
-
+    build_chain()
     return "File inserted!", 200
 
 @app.route("/upload/url", methods=["POST"])
@@ -143,12 +150,12 @@ def upload_url():
         documents = loader.load_data(urls=[source])
 
         index = get_index(documents, './store', source, label, description)
-        build_agent(index)
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500
-
+    build_chain()
     return "File inserted!", 200
+
 # @app.route("/get_files", methods=["GET"])
 # def retrieve_doc():
 #     # initialize pinecone
@@ -168,30 +175,12 @@ def upload_url():
 
 
 ##################################### index building ######################################
-
-def initialize_llama_index():
+def initialize_index():
     ''' 
     use LlamaIndex as a query tool, augment the model with specific data
     '''
-    # path = os.path.join(os.getcwd(), './store')
-    # if os.path.exists(path):
-    #     return get_index([], "./store")
-    # else :
-    #     print("build index from local files")
-        # document_ids = ['13CJ05ef5AvSQjWmkBAPCWMMjJTYm-qWwVeIkmLtcK64']
-        # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
-        # index = GPTSimpleVectorIndex.from_documents(google_doc)
-        # wikipedia
-        # WikipediaReader = download_loader("WikipediaReader")
-
-        # documents.extend(WikipediaReader().load_data(pages=['Boston']))
-        
-        # documents = SimpleDirectoryReader("./documents").load_data()
-        # documents.extend(SimpleDirectoryReader("./add_docs").load_data())
-
     return get_index([], "./store")
         
-
 def get_index(documents, persist_dir, source="Uploaded file", label="General", description="Boston government document"):
     # pine cone store
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -201,6 +190,7 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
 
     # create storage context using default stores
     from llama_index.vector_stores import PineconeVectorStore
+    import datetime
 
     # vector store in pinecone
     vector_store = PineconeVectorStore(
@@ -225,6 +215,7 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
             node.extra_info['source'] = source
             node.extra_info['label'] = label
             node.extra_info['description'] = description
+            node.extra_info['date'] = str(datetime.date.today())
 
         # create (or load) docstore and add nodes
         # storage_context.docstore.add_documents(nodes)
@@ -240,101 +231,46 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
     return index
 
 ##################################### tool building ######################################
-def build_pinecone_retrieval_tool(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
+def build_chain(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
     global agent
 
     # https://docs.pinecone.io/docs/langchain
     from langchain.embeddings.openai import OpenAIEmbeddings
-
     # create embedding
     model_name = 'text-embedding-ada-002'
     embed = OpenAIEmbeddings(
         model=model_name,
     )
+
     # vector store
-    text_field = "text"
     vectorstore = Pinecone(
         pinecone.Index("llm-prototypes"), 
         embed.embed_query, 
-        text_field
+        "text"
     )
     
-    from langchain.chains import RetrievalQA
-
-    # completion llm
-    llm = ChatOpenAI(
-        model_name='gpt-3.5-turbo',
-        temperature=0.0
-    )
-
     from langchain.chains import RetrievalQAWithSourcesChain
-
     agent = RetrievalQAWithSourcesChain.from_chain_type(
-        llm=llm,
+        llm=build_llm(),
         chain_type="stuff",
         retriever=vectorstore.as_retriever()
     )
 
-    from langchain.tools import tool
-    @tool("retrieval", return_direct=True)
-    def retrieval(query: str) -> str:
-        '''use this tool to answer all questions, if cannot answer, move on to other tools'''
-        # """useful for useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start, and when you are asked to include evidence of original source file or text and where you find certain information"""
-        response = qa({"question":query}, return_only_outputs=True)
-        # return f"{response['result']} \nSrouce: {response['source_documents'][0]}"
-        return f"{response['answer']} \n Source: {response['sources']}"
+def get_similar_docs(query):
+    embeddings = OpenAIEmbeddings()
 
-    return retrieval
+    docsearch = Pinecone.from_existing_index(index_name, embeddings)
 
-
-def build_llama_tool(index):
-    query_engine = index.as_query_engine()
-    tool_config = IndexToolConfig(
-        query_engine=query_engine, 
-        name="Llama",
-        description=f"useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start",
-        tool_kwargs={"return_direct": True}
-    )
-    return LlamaIndexTool.from_tool_config(tool_config)
-
-def build_web_search_tool():
-    from langchain import SerpAPIWrapper
-    search = SerpAPIWrapper(serpapi_api_key=config.SERPAPI_API_KEY)
-    return Tool(
-        name = "Search",
-        func=search.run,
-        description="useful for when you need to answer questions about general knowledge, things that might be on the news, common sense knowledge"
-    )
-
-def build_GPT_tool():
-    from langchain.tools import AIPluginTool
-    return AIPluginTool.from_plugin_url("https://www.klarna.com/.well-known/ai-plugin.json")
+    docs = docsearch.similarity_search(query)
+    return docs
 
 def build_llm():
-    return ChatOpenAI(temperature=0)
-
-##################################### agent building ######################################
-
-def build_agent(index):
-    '''
-    create tools and build toolkit, then create an agent
-    '''
-    global agent
-    # from langchain.agents import AgentType
-    
-    toolkit = [build_pinecone_retrieval_tool(), build_llama_tool(index), build_web_search_tool(), build_GPT_tool()]
-
-    agent = initialize_agent(
-        agent="conversational-react-description",
-        tools=toolkit,
-        llm=build_llm(),
-        memory=ConversationBufferMemory(memory_key="chat_history"),
-        verbose=True,
-        handle_parsing_errors='Check your output and make sure it conforms! If you think you do not need any tool, just return your thought.'
+    return ChatOpenAI(
+        model_name='gpt-3.5-turbo',
+        temperature=0.0
     )
 
-
 if __name__ == "__main__":
-    index = initialize_llama_index()
-    build_agent(index)
+    initialize_index()
+    build_chain()
     app.run(host="0.0.0.0", port=5601)

@@ -11,9 +11,10 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { Container, Divider, IconButton, InputAdornment, Link, Stack, TextField } from '@mui/material';
 import SideBar from './SideBar';
 import InputBox from './components/InputBox';
-import Answer from './components/Answer';
+import Response from './components/Response';
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
 function App() {
 
@@ -26,16 +27,16 @@ function App() {
       /* post question */ 
       let newDialogue = {
         question: question,
-        answer: ""
+        response: ""
       }
       setDialogues([...dialogues, newDialogue]);
 
-      /* get answer from GPT and post it */
+      /* get response from GPT and post it */
       http.post('/query', {question: question})
       .then((res) => {
         const {data} = res;
-        // update newDialogue with the answer returned from GPT
-        newDialogue.answer = data;
+        // update newDialogue with the response returned from GPT
+        newDialogue.response = data;
 
         setDialogues([...dialogues, newDialogue])
       })
@@ -57,7 +58,7 @@ function App() {
           </div>
         : 
           <div className="btn" onClick={() => setShowSessions(!showSessions)} style={{height: '50px'}}>
-            <MenuIcon/>
+            <PlaylistAddIcon/>
           </div>
         }
         <div className={showSessions ? 'col-8' : 'col-12'}> {/* style={{minHeight: '100%', height:'100%'}} */}
@@ -65,7 +66,7 @@ function App() {
             <div className={showSessions ? 'col-10' : 'col-7'}>
               <h3 class="mt-2"> 🤖 Boston LLM </h3>
               <Stack style={{maxHeight: '650px', height:'800px', overflow: 'auto'}} className="mt-4"> 
-                <Answer answer={'Hi there! How can I help you?'}/>
+                <Response response={{answer: "Hi there! How can I help you?"}}/>
                 {dialogues.map((dialogue, i) => <Dialogue dialogue={dialogue} showFeedbackIcons={i == dialogues.length - 1}/>)}
               </Stack>
               {/** style={{position: 'fixed', left: '30%', bottom: '10%'}}*/}

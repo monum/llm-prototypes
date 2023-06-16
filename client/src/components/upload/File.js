@@ -31,6 +31,7 @@ export default function File({setUploadMethod}) {
             setSelectedFile(null);
             setIsSelected(false);
             toastSuccess('File uploaded!');
+            setUploadMethod("")
         } else {
             toastWarn(`${response.status}: ${response.statusText}`);
         }
