@@ -56,9 +56,10 @@ if index_name not in pinecone.list_indexes():
         metric='cosine',
         dimension=1536  # 1536 dim of text-embedding-ada-002
     )
-pinecone_index_table = pinecone.GRPCIndex(index_name)
-print(pinecone_index_table.describe_index_stats())
+pinecone_index = pinecone.GRPCIndex(index_name)
+print(pinecone_index.describe_index_stats())
 pinecone.describe_index(index_name)
+
 ####################################### routes ########################################
 
 @app.route("/query", methods=["POST"])
@@ -71,10 +72,9 @@ def query_agent():
 
   print("User query: " + query_text)
   response = agent.run(input=query_text)
-  print(response)
   return response, 200
 
-@app.route("/upload", methods=["POST"])
+@app.route("/upload/file", methods=["POST"])
 def upload_file():
     if 'file' not in request.files:
         return "Please send a POST request with a file", 400
@@ -87,10 +87,13 @@ def upload_file():
         filepath = os.path.join('documents', os.path.basename(filename))
         uploaded_file.save(filepath)
 
-        if request.form.get("filename_as_doc_id", None) is not None:
-            insert_into_index(filepath, doc_id=filename)
-        else:
-            insert_into_index(filepath)
+        label = request.form.get("label", None)
+        description = request.form.get("description", None)
+        
+        document = SimpleDirectoryReader(input_files=[filepath]).load_data()[0]
+        source = label + '/' + document.extra_info['file_name']
+        index = get_index([document], "./store", source, label, description)
+        build_agent(index)
     except Exception as e:
         print(e)
         # cleanup temp file
@@ -101,6 +104,27 @@ def upload_file():
     # cleanup temp file
     if filepath is not None and os.path.exists(filepath):
         os.remove(filepath)
+
+    return "File inserted!", 200
+
+@app.route("/upload/wiki", methods=["POST"])
+def upload_wiki():
+    try:
+        page_name = request.form.get('page_name', None)
+        label = request.form.get("label", None)
+        description = request.form.get("description", None)
+        WikipediaReader = download_loader("WikipediaReader")
+        source = 'https://en.wikipedia.org/wiki/'+page_name
+
+        loader = WikipediaReader()
+        print(page_name)
+        document = loader.load_data(pages=[page_name])
+        # print(document[0])
+        index = get_index(document, './store', source, label, description)
+        build_agent(index)
+    except Exception as e:
+        print(e)
+        return "Error: {}".format(str(e)), 500
 
     return "File inserted!", 200
 
@@ -128,31 +152,26 @@ def initialize_llama_index():
     ''' 
     use LlamaIndex as a query tool, augment the model with specific data
     '''
-    try:
-        # this will loaded the persisted stores from persist_dir
-        storage_context = StorageContext.from_defaults(
-            persist_dir="./store"
-        )
-        # then load the index object
-        return load_index_from_storage(storage_context)
-    # if no index file, we index all documents
-    except:
+    # path = os.path.join(os.getcwd(), './store')
+    # if os.path.exists(path):
+    #     return get_index([], "./store")
+    # else :
+    #     print("build index from local files")
         # document_ids = ['13CJ05ef5AvSQjWmkBAPCWMMjJTYm-qWwVeIkmLtcK64']
         # google_doc = GoogleDocsReader().load_data(document_ids=document_ids)
         # index = GPTSimpleVectorIndex.from_documents(google_doc)
         # wikipedia
         # WikipediaReader = download_loader("WikipediaReader")
+
         # documents.extend(WikipediaReader().load_data(pages=['Boston']))
-
-        documents = SimpleDirectoryReader("./documents").load_data()
+        
+        # documents = SimpleDirectoryReader("./documents").load_data()
         # documents.extend(SimpleDirectoryReader("./add_docs").load_data())
-        # split documents into chunks
 
-        # text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
-        # docs = text_splitter.split_documents(documents)
-        return rebuild_index_with_docs(documents, "./store")
+    return get_index([], "./store")
+        
 
-def rebuild_index_with_docs(documents, persist_dir):
+def get_index(documents, persist_dir, source="Uploaded file", label="General", description="Boston government document"):
     # pine cone store
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     # docs = text_splitter.split_documents(documents)
@@ -164,7 +183,7 @@ def rebuild_index_with_docs(documents, persist_dir):
 
     # vector store in pinecone
     vector_store = PineconeVectorStore(
-        pinecone_index=pinecone_index_table,
+        pinecone_index=pinecone_index,
         add_sparse_vector=True,
     )
     storage_context = StorageContext.from_defaults(
@@ -172,36 +191,83 @@ def rebuild_index_with_docs(documents, persist_dir):
         vector_store=vector_store,
         index_store=SimpleIndexStore(),
     )
+    index = None  
+    if (documents is not None):
+        # create parser and parse document into nodes 
+        parser = SimpleNodeParser()
+        nodes = parser.get_nodes_from_documents(documents)
+        for node in nodes:
+            print(node)
+            print(node.extra_info)
+            if (node.extra_info is None):
+                node.extra_info = {}
+            node.extra_info['source'] = source
+            node.extra_info['label'] = label
+            node.extra_info['description'] = description
 
-    # create parser and parse document into nodes 
-    parser = SimpleNodeParser()
-    nodes = parser.get_nodes_from_documents(documents)
+        # create (or load) docstore and add nodes
+        # storage_context.docstore.add_documents(nodes)
 
-    # create (or load) docstore and add nodes
-    # storage_context.docstore.add_documents(nodes)
+        # build index
+        index = VectorStoreIndex(nodes, storage_context=storage_context)
+    else: 
+        index = VectorStoreIndex([], storage_context=storage_context)
 
-    # build index
-    index = VectorStoreIndex(nodes, storage_context=storage_context)
     # save index
     index.storage_context.persist(persist_dir=persist_dir)
-    
+
     return index
 
-def insert_into_index(doc_text, doc_id=None):
-    ''' 
-    insert file uploaded to index
-    '''
-    print(doc_text)
-    document = SimpleDirectoryReader(input_files=[doc_text]).load_data()[0]
-    index = rebuild_index_with_docs([document], "./store")
-    
-    # import pinecone
-    # from llama_index.vector_stores import PineconeVectorStore
-    # api_key = 
-    # pinecone.init(api_key=api_key, environment="us-west1-gcp")
-    build_agent(index)
-
 ##################################### tool building ######################################
+def build_pinecone_retrieval_tool(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
+    # https://docs.pinecone.io/docs/langchain
+    from langchain.embeddings.openai import OpenAIEmbeddings
+
+    # create embedding
+    model_name = 'text-embedding-ada-002'
+    embed = OpenAIEmbeddings(
+        model=model_name,
+    )
+    # vector store
+    text_field = "text"
+    vectorstore = Pinecone(
+        pinecone.Index("llm-prototypes"), 
+        embed.embed_query, 
+        text_field
+    )
+    
+    from langchain.chains import RetrievalQA
+
+    # completion llm
+    llm = ChatOpenAI(
+        model_name='gpt-3.5-turbo',
+        temperature=0.0
+    )
+
+    from langchain.chains import RetrievalQAWithSourcesChain
+
+    qa = RetrievalQAWithSourcesChain.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=vectorstore.as_retriever()
+    )
+
+    # qa = RetrievalQA.from_chain_type(
+    #     llm=llm,
+    #     chain_type="stuff",
+    #     retriever=vectorstore.as_retriever(),
+    #     return_source_documents=True
+    # )
+    from langchain.tools import tool
+    @tool("retrieval", return_direct=True)
+    def retrieval(query: str) -> str:
+        """useful for useful for when you want to answer queries that might be answered by the Boston government, or about Fresh Start, and when you are asked to include evidence of original source file or text and where you find certain information"""
+        response = qa({"question":query}, return_only_outputs=True)
+        # return f"{response['result']} \nSrouce: {response['source_documents'][0]}"
+        return f"{response['answer']} \n Source: {response['sources']}"
+
+    return retrieval
+
 
 def build_llama_tool(index):
     query_engine = index.as_query_engine()
@@ -236,9 +302,9 @@ def build_agent(index):
     create tools and build toolkit, then create an agent
     '''
     global agent
-    from langchain.agents import AgentType
+    # from langchain.agents import AgentType
     
-    toolkit = [build_llama_tool(index), build_web_search_tool(), build_GPT_tool()]
+    toolkit = [build_pinecone_retrieval_tool(), build_web_search_tool(), build_GPT_tool()] # build_llama_tool(index)
 
     agent = initialize_agent(
         agent="conversational-react-description",
@@ -246,7 +312,7 @@ def build_agent(index):
         llm=build_llm(),
         memory=ConversationBufferMemory(memory_key="chat_history"),
         verbose=True,
-        handle_parsing_errors="Check your output and make sure it conforms! If you think you do not need any tool, just return your thought."
+        handle_parsing_errors='Check your output and make sure it conforms! If you think you do not need any tool, just return your thought.'
     )
 
 

@@ -1,69 +1,85 @@
-import { useState } from "react";
-import Sessions from "./components/Sessions";
-import {toastSuccess, toastWarn} from './services/NotificationServices';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
+import * as React from 'react';
+import ListSubheader from '@mui/material/ListSubheader';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Collapse from '@mui/material/Collapse';
+import InboxIcon from '@mui/icons-material/MoveToInbox';
+import DraftsIcon from '@mui/icons-material/Drafts';
+import SendIcon from '@mui/icons-material/Send';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import StarBorder from '@mui/icons-material/StarBorder';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Icon } from "@mui/material";
+import File from './components/upload/File';
+import Wikipedia from './components/upload/Wikipedia';
 
 export default function SideBar({showSessions, setShowSessions}) {
-    const [selectedFile, setSelectedFile] = useState();
-	const [isSelected, setIsSelected] = useState(false);
+    function UploadMethodSelectPanel() {
+        //   const handleClick = () => {
+        //     setOpen(!open);
+        //   };
 
-	const changeHandler = (event) => {
-		setSelectedFile(event.target.files[0]);
-		setIsSelected(true);
-	};
-
-    const handleSubmission = async () => {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("filename_as_doc_id", "true");
-
-        const response = await fetch("http://localhost:5601/upload", {
-            mode: "cors",
-            method: "POST",
-            body: formData,
-        });
-        console.log(response)
-        if (response.status == 200) {
-            setSelectedFile(null);
-            setIsSelected(false);
-            toastSuccess('File uploaded!');
-        } else {
-            toastWarn(`${response.status}: ${response.statusText}`);
-        }
-        return;
-    };
-    
-    return (
-        <div className="bg-light p-2">
-            <div className="d-flex">
+        return (
+            <>
                 <div className="btn" onClick={() => setShowSessions(!showSessions)}>
-                    <ArrowBackIcon/>
+                <ArrowBackIcon/>
                 </div>
-                <h2 class="">
-                    File upload
-                </h2>
-            </div>
+                <List
+                    sx={{ width: '100%', maxWidth: 360 }} // , bgcolor: 'background.paper'
+                    component="nav"
+                    aria-labelledby="nested-list-subheader"
+                    subheader={
+                        <ListSubheader component="div" id="nested-list-subheader">
+                            Choose a upload method:
+                        </ListSubheader>
+                    }
+                    >
+                    <ListItemButton onClick={() => setUploadMethod('file')}>
+                        <ListItemIcon>
+                        <SendIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="File" />
+                    </ListItemButton>
+                    <ListItemButton onClick={() => setUploadMethod('wikipedia')}>
+                        <ListItemIcon>
+                        <DraftsIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="Wikipedia" />
+                    </ListItemButton>
+                    <ListItemButton onClick={() => setUploadMethod('web_page')}>
+                        <ListItemIcon>
+                        <InboxIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="Web page" />
+                        {/* {open ? <ExpandLess /> : <ExpandMore />} */}
+                    </ListItemButton>
+                        {/* <Collapse in={open} timeout="auto" unmountOnExit>
+                            <List component="div" disablePadding>
+                            <ListItemButton sx={{ pl: 4 }} onClick={() => setUploadMethod('')}>
+                                <ListItemIcon>
+                                    <StarBorder />
+                                </ListItemIcon>
+                                <ListItemText primary="Starred" />
+                            </ListItemButton>
+                            </List>
+                        </Collapse> */}
+                </List>
+            </>
+        )
+    }
 
-            <input type="file" name="file" onChange={changeHandler} />
 
-            {isSelected ? (
-				<div>
-					<p>Filename: {selectedFile.name}</p>
-					<p>Filetype: {selectedFile.type}</p>
-					<p>Size in bytes: {selectedFile.size / 1000000} MB</p>
-					<p>
-						lastModifiedDate:{' '}
-						{selectedFile.lastModifiedDate.toLocaleDateString()}
-					</p>
-                <div>
-                    <div className="btn btn-primary" onClick={handleSubmission}>Submit</div>
-                </div>
-				</div>
-			) : (
-				<p></p>
-			)}
+    const [open, setOpen] = React.useState(true);
+    const [uploadMethod, setUploadMethod] = React.useState("");
+
+
+    return (
+        <div className='bg-light'>
+            {uploadMethod === "" && <UploadMethodSelectPanel/>}
+            {uploadMethod === "file" && <File setUploadMethod={setUploadMethod}/>}
+            {uploadMethod === "wikipedia" && <Wikipedia setUploadMethod={setUploadMethod}/>}
         </div>
-    )
+    );
 }
