@@ -18,10 +18,6 @@ import Webpage from './components/upload/Webpage';
 
 export default function SideBar({showSessions, setShowSessions}) {
     function UploadMethodSelectPanel() {
-        //   const handleClick = () => {
-        //     setOpen(!open);
-        //   };
-
         return (
             <>
                 <div className="btn" onClick={() => setShowSessions(!showSessions)}>
@@ -31,11 +27,11 @@ export default function SideBar({showSessions, setShowSessions}) {
                     sx={{ width: '100%', maxWidth: 360 }} // , bgcolor: 'background.paper'
                     component="nav"
                     aria-labelledby="nested-list-subheader"
-                    subheader={
-                        <ListSubheader component="div" id="nested-list-subheader">
-                            Choose a upload method:
-                        </ListSubheader>
-                    }
+                    // subheader={
+                    //     <ListSubheader component="div" id="nested-list-subheader" className='d-flex'>
+                    //         Choose a upload method:
+                    //     </ListSubheader>
+                    // }
                     >
                     <ListItemButton onClick={() => setUploadMethod('file')}>
                         <ListItemIcon>

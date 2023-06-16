@@ -3,6 +3,7 @@ import {toastSuccess, toastWarn} from '../../services/NotificationServices';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Icon, TextField } from "@mui/material";
 import SelectLabel from "./SelectLabel";
+import { recordDoc } from "../../services/DocStoreServices";
 
 export default function Wikipedia({setUploadMethod}) {
     const [page, setPage] = useState("");
@@ -34,14 +35,19 @@ export default function Wikipedia({setUploadMethod}) {
             method: "POST",
             body: formData,
         });
-        console.log(response)
         if (response.status == 200) {
-            toastSuccess('Page added!');
-            setUploadMethod("")
-        } else {
-            toastWarn(`${response.status}: ${response.statusText}`);
-        }
-        return;
+            const status = await recordDoc({
+                source: "https://en.wikipedia.org/wiki/"+page_name,
+                label: label,
+                description: description
+            })
+            if (status == 200) {
+                toastSuccess('Page uploaded!');
+                setUploadMethod("")
+                return;
+            }
+        } 
+        toastWarn(`${response.status}: ${response.statusText}`);
     };
     
     return (

@@ -3,6 +3,7 @@ import {toastSuccess, toastWarn} from '../../services/NotificationServices';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Icon, TextField } from "@mui/material";
 import SelectLabel from "./SelectLabel";
+import { recordDoc } from "../../services/DocStoreServices";
 
 export default function Webpage({setUploadMethod}) {
     const [url, setUrl] = useState("");
@@ -34,14 +35,21 @@ export default function Webpage({setUploadMethod}) {
             body: formData,
         });
 
-        console.log(response)
         if (response.status == 200) {
-            toastSuccess('Page added!');
-            setUploadMethod("")
-        } else {
-            toastWarn(`${response.status}: ${response.statusText}`);
-        }
-        return;
+            const status = await recordDoc({
+                source: url,
+                label: label,
+                description: description
+            })
+            console.log(status)
+            if (status == 200) {
+                toastSuccess('Page added!');
+                setUploadMethod("")
+                return;
+            }
+        } 
+
+        toastWarn(`${response.status}: ${response.statusText}`);
     };
     
     return (

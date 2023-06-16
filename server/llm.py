@@ -103,7 +103,7 @@ def upload_file():
         
         document = SimpleDirectoryReader(input_files=[filepath]).load_data()[0]
         source = label + '/' + document.extra_info['file_name']
-        index = get_index([document], "./store", source, label, description)
+        build_index([document], "./store", source, label, description)
     except Exception as e:
         print(e)
         # cleanup temp file
@@ -131,7 +131,7 @@ def upload_wiki():
         print(page_name)
         document = loader.load_data(pages=[page_name])
         # print(document[0])
-        index = get_index(document, './store', source, label, description)
+        build_index(document, './store', source, label, description)
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500
@@ -149,29 +149,36 @@ def upload_url():
         loader = BeautifulSoupWebReader()
         documents = loader.load_data(urls=[source])
 
-        index = get_index(documents, './store', source, label, description)
+        build_index(documents, './store', source, label, description)
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500
     build_chain()
-    return "File inserted!", 200
+    return "Url uploaded!", 200
 
-# @app.route("/get_files", methods=["GET"])
-# def retrieve_doc():
-#     # initialize pinecone
-#     pinecone.init(
-#         api_key=PINECONE_API_KEY,  # find at app.pinecone.io
-#         environment=PINECONE_ENV  # next to api key in console
-#     )
-#     index_name = "langchain-demo"
-#     embeddings = OpenAIEmbeddings()
-#     docsearch = Pinecone.from_documents(docs, embeddings, index_name=index_name)
+@app.route("/get_files", methods=["POST"])
+def retrieve_doc():
+    from llama_index.vector_stores import PineconeVectorStore
+    
+    # label = request.form.get("label", "")
+    # metadata_filters = {
+    #     "label": label
+    # }
+    # vector_store = PineconeVectorStore(
+    #     pinecone_index=pinecone_index,
+    #     add_sparse_vector=True,
+    #     metadata_filters=metadata_filters
+    # )
+    # storage_context = StorageContext.from_defaults(
+    #     docstore=SimpleDocumentStore(),
+    #     vector_store=vector_store,
+    #     index_store=SimpleIndexStore(),
+    # )
+    # index = VectorStoreIndex([], storage_context=storage_context)
 
-#     # if you already have an index, you can load it like this
-#     # docsearch = Pinecone.from_existing_index(index_name, embeddings)
-
-#     query = "What did the president say about Ketanji Brown Jackson"
-#     docs = docsearch.similarity_search(query)
+    # embeddings = OpenAIEmbeddings()
+    # docsearch = Pinecone.from_existing_index(index_name, embeddings)
+    # docs = docsearch.max_marginal_relevance_search(label, k=2, fetch_k=10)
 
 
 ##################################### index building ######################################
@@ -179,9 +186,9 @@ def initialize_index():
     ''' 
     use LlamaIndex as a query tool, augment the model with specific data
     '''
-    return get_index([], "./store")
+    return build_index([], "./store")
         
-def get_index(documents, persist_dir, source="Uploaded file", label="General", description="Boston government document"):
+def build_index(documents, persist_dir, source="Uploaded file", label="General", description="Boston government document"):
     # pine cone store
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     # docs = text_splitter.split_documents(documents)
@@ -208,8 +215,6 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
         parser = SimpleNodeParser()
         nodes = parser.get_nodes_from_documents(documents)
         for node in nodes:
-            print(node)
-            print(node.extra_info)
             if (node.extra_info is None):
                 node.extra_info = {}
             node.extra_info['source'] = source
@@ -228,7 +233,6 @@ def get_index(documents, persist_dir, source="Uploaded file", label="General", d
     # save index
     index.storage_context.persist(persist_dir=persist_dir)
 
-    return index
 
 ##################################### tool building ######################################
 def build_chain(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
@@ -271,6 +275,6 @@ def build_llm():
     )
 
 if __name__ == "__main__":
-    initialize_index()
+    build_index([], "./store")
     build_chain()
     app.run(host="0.0.0.0", port=5601)

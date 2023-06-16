@@ -15,12 +15,15 @@ import Response from './components/Response';
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import Files from './Files';
+import ListIcon from '@mui/icons-material/List';
 
 function App() {
 
   const [dialogues, setDialogues] = useState([]);
   const [question, setQuestion] = useState('');
   const [showSessions, setShowSessions] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
 
   const addQuestion = () => {
     if (question) {
@@ -52,15 +55,26 @@ function App() {
       <ToastContainer />
       {/* <NavBar/> */}
       <div className='d-flex' >
-        {showSessions ? 
-          <div className='col-3'> {/* offcanvas offcanvas-start show*/}
-            <SideBar showSessions={showSessions} setShowSessions={setShowSessions} />
-          </div>
-        : 
-          <div className="btn" onClick={() => setShowSessions(!showSessions)} style={{height: '50px'}}>
-            <PlaylistAddIcon/>
-          </div>
-        }
+        {/* <div> */}
+          {showSessions ? 
+            <div className='col-2'> {/* offcanvas offcanvas-start show*/}
+              <SideBar showSessions={showSessions} setShowSessions={setShowSessions} />
+            </div>
+          : 
+            <div className="btn" onClick={() => setShowSessions(!showSessions)} style={{height: '50px'}}>
+              <PlaylistAddIcon/>
+            </div>
+          }
+            {showFiles ? 
+              <div className='col-2'> {/* offcanvas offcanvas-start show*/}
+                {/* <Files showFiles={showFiles} setShowFiles={setShowFiles}/> */}
+              </div>
+            : 
+              <div className="btn" onClick={() => {setShowFiles(true)}} style={{height: '50px'}}>
+                {/* <ListIcon/> */}
+              </div>
+            }
+        {/* </div> */}
         <div className={showSessions ? 'col-8' : 'col-12'}> {/* style={{minHeight: '100%', height:'100%'}} */}
           <div className='d-flex justify-content-center'>
             <div className={showSessions ? 'col-10' : 'col-7'}>
