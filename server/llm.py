@@ -35,13 +35,8 @@ python /Users/omgitsmonday/projects/llm-prototypes/server/llm.py
 # env var set up
 
 ##### OpenAI set up #####
-# load_dotenv()
 os.environ['OPENAI_API_KEY'] = config.OPENAI_API_KEY # remove key when push to remote
 openai.api_key = config.OPENAI_API_KEY 
-# openai.api_type = "azure"
-# openai.api_base = "YOUR_OPENAI_ENDPOINT"
-# openai.api_version = "2023-05-15"
-# openai.api_key = "YOUR_OPENAI_API_KEY"
 
 #### set up vector store ####
 model: str = "text-embedding-ada-002"
@@ -60,7 +55,6 @@ vector_store: AzureSearch = AzureSearch(
 app = Flask(__name__)
 CORS(app)
 
-from langchain.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
 
 ####################################### routes ########################################
@@ -78,9 +72,9 @@ def query_agent():
     docs = get_similar_docs(query)
     metadata = [doc.metadata for doc in docs]
 
-    # response
-    # response = agent({"question":query}, return_only_outputs=True)
-    # print(response)
+    response
+    response = agent({"question":query}, return_only_outputs=True)
+    print(response)
     
     res = {
         # "answer": response['answer'],
