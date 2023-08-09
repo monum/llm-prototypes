@@ -3,12 +3,14 @@ import {toastSuccess, toastWarn} from '../../services/NotificationServices';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Icon, TextField } from "@mui/material";
 import SelectLabel from "./SelectLabel";
+import SelectOrg from "./SelectOrg"
 import { recordDoc } from "../../services/DocStoreServices";
 
 export default function File({setUploadMethod}) {
     const [selectedFile, setSelectedFile] = useState();
 	const [isSelected, setIsSelected] = useState(false);
-    const [label, setLabel] = useState("")
+    const [label, setLabel] = useState("Technology")
+    const [org, setOrg] = useState("MONUM")
     const [description, setDescription] = useState("") 
 
 	const changeHandler = (event) => {
@@ -20,6 +22,7 @@ export default function File({setUploadMethod}) {
         const formData = new FormData();
         formData.append("file", selectedFile);
         formData.append("label", label);
+        formData.append("org", org);
         formData.append("description", description);
 
         const response = await fetch("http://localhost:5601/upload/file", {
@@ -70,6 +73,9 @@ export default function File({setUploadMethod}) {
 
                     <p>Choose a label:</p>
                     <SelectLabel setLabel={setLabel}/>
+
+                    <p>Choose an organization:</p>
+                    <SelectOrg setOrg={setOrg}/>
 
                     <TextField 
                         className="m-3" 

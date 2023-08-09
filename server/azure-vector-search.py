@@ -11,6 +11,9 @@ from langchain.text_splitter import CharacterTextSplitter
 from llama_index import SimpleDirectoryReader
 from langchain.vectorstores.azuresearch import AzureSearch
 from langchain.embeddings import OpenAIEmbeddings
+from llama_index.storage.storage_context import StorageContext
+from llama_index import VectorStoreIndex
+from llama_index import Document
 
 # from tenacity import retry, wait_random_exponential, stop_after_attempt  
 from azure.core.credentials import AzureKeyCredential  
@@ -57,39 +60,46 @@ def query():
     if query is None:
         return "No text found:(", 400
     print("User query: " + query)
-    
-    # LLM response
-    # vector store
-    vector_store: AzureSearch = AzureSearch(
-        azure_search_endpoint=service_endpoint,
-        azure_search_key=key,
-        index_name=index_name,
-        embedding_function=OpenAIEmbeddings(model=model, chunk_size=1).embed_query,
-    )
-    
-    from langchain.chains import RetrievalQAWithSourcesChain
-    from langchain.chat_models import ChatOpenAI
-    agent = RetrievalQAWithSourcesChain.from_chain_type(
-        llm=ChatOpenAI(
-            model_name='gpt-3.5-turbo',
-            temperature=0.0
-        ),
-        chain_type="stuff",
-        retriever=vector_store.as_retriever()
-    )
-    response = agent({"question":query}, return_only_outputs=True)
-    print(response)
 
     # Source file retrieval
     search_client = SearchClient(service_endpoint, index_name, credential=AzureKeyCredential(key))
     # vector = Vector(value=generate_embeddings(query), k=3, fields="contentVector")
     results = search_client.search(  
         search_text=query,  
-        select=["department", "organization", "filename", "date"],
-    )  
+        select=["department", "organization", "filename", "date", "content"],
+    )
     # {'date': '2023-08-09', 'department': '', 'filename': 'Fresh Start.pdf', 'organization': '', '@search.score': 1.9620056, '@search.reranker_score': None, '@search.highlights': None, '@search.captions': None}
 
-    return "Success", 200
+    # LLM response
+    # construct documents from source files
+    docs = []
+    for result in results:
+        doc = Document(
+            text=result["content"],
+            # metadata = {
+            #     "department": result["department"],
+            #     "organization":result["organization"],
+            #     "filename": result["filename"],
+            #     "date": result["date"]
+            # }
+        )
+        docs.append(doc)
+    
+    index = VectorStoreIndex.from_documents(docs)
+    query_engine = index.as_query_engine()
+    res = query_engine.query(query)
+
+    res = {
+        "answer": res.response,
+        "confidence":res.source_nodes[0].score,
+        "sources": "",
+        "id": "",
+        "label": "",
+        "description": "",
+        "date": ""
+    }
+
+    return res, 200
 
 @app.route("/upload/file", methods=["POST"])
 def upload_file():

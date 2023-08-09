@@ -6,7 +6,6 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 
 export default function AnswerCard({response}) {
     const [showSources, setShowSources] = useState(false);
-    console.log(response)
     return (
         <Card className="ps-3 pe-3 pt-2 pb-2 ms-3 me-3" variant="outlined" style={{textAlign: 'left'}}>
             {response ? 
