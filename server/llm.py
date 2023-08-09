@@ -29,7 +29,7 @@ from langchain.vectorstores.azuresearch import AzureSearch
 # from dotenv import load_dotenv
 '''
 to run script: 
-python /Users/omgitsmonday/projects/llm-prototypes/server/llm.py
+python llm.py
 '''
 
 # env var set up
@@ -42,7 +42,7 @@ openai.api_key = config.OPENAI_API_KEY
 model: str = "text-embedding-ada-002"
 vector_store_address: str = config.AZURE_SEARCH_ENDPOINT
 vector_store_password: str = config.AZURE_SEARCH_ADMIN_KEY
-index_name: str = "azureblob-index"
+index_name: str = "azureblobindex"
 embeddings: OpenAIEmbeddings = OpenAIEmbeddings(model=model, chunk_size=1)
 vector_store: AzureSearch = AzureSearch(
     azure_search_endpoint=vector_store_address,
@@ -72,7 +72,6 @@ def query_agent():
     docs = get_similar_docs(query)
     metadata = [doc.metadata for doc in docs]
 
-    response
     response = agent({"question":query}, return_only_outputs=True)
     print(response)
     
@@ -185,7 +184,6 @@ def retrieve_doc():
 ##################################### index building ######################################
         
 def build_vectors(documents, persist_dir, source="Uploaded file", label="General", description="Boston government document"):
-    # create storage context using default stores
     import datetime
 
     vector_store: AzureSearch = AzureSearch(
@@ -194,7 +192,8 @@ def build_vectors(documents, persist_dir, source="Uploaded file", label="General
         index_name=index_name,
         embedding_function=embeddings.embed_query,
     )
-    if (documents is not None):
+    # Attach metadata to text chunks
+    if documents is not None:
         text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         docs = text_splitter.split_documents(documents)
         for document in docs:
@@ -207,10 +206,11 @@ def build_vectors(documents, persist_dir, source="Uploaded file", label="General
 
 ##################################### tool building ######################################
 def build_chain(): # https://python.langchain.com/en/latest/modules/agents/tools/custom_tools.html
-    global agent
+    
+    # global agent
 
     # https://docs.pinecone.io/docs/langchain
-    from langchain.embeddings.openai import OpenAIEmbeddings
+    # from langchain.embeddings.openai import OpenAIEmbeddings
     # create embedding
     model_name = 'text-embedding-ada-002'
     embed = OpenAIEmbeddings(
