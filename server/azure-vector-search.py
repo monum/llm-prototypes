@@ -14,6 +14,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from llama_index.storage.storage_context import StorageContext
 from llama_index import VectorStoreIndex
 from llama_index import Document
+from azure.storage.blob import BlobServiceClient
 
 # from tenacity import retry, wait_random_exponential, stop_after_attempt  
 from azure.core.credentials import AzureKeyCredential  
@@ -66,45 +67,60 @@ def query():
     # vector = Vector(value=generate_embeddings(query), k=3, fields="contentVector")
     results = search_client.search(  
         search_text=query,  
-        select=["department", "organization", "filename", "date", "content"],
+        select=["department", "organization", "filename", "date", "content", "url"],
     )
+    # for result in results:
+    #     print(result)
+    
     # {'date': '2023-08-09', 'department': '', 'filename': 'Fresh Start.pdf', 'organization': '', '@search.score': 1.9620056, '@search.reranker_score': None, '@search.highlights': None, '@search.captions': None}
 
     # LLM response
     # construct documents from source files
     docs = []
+    sources = []
     for result in results:
         doc = Document(
-            text=result["content"],
-            # metadata = {
-            #     "department": result["department"],
-            #     "organization":result["organization"],
-            #     "filename": result["filename"],
-            #     "date": result["date"]
-            # }
+            text=result["content"]
         )
+        doc.metadata = {
+            "department": result["department"],
+            "organization":result["organization"],
+            "filename": result["filename"],
+            "date": result["date"]
+        }
+        source = {
+            "department": result["department"],
+            "organization":result["organization"],
+            "filename": result["filename"],
+            "url": result["url"],
+            "date": result["date"],
+            "content": result["content"]
+        }
         docs.append(doc)
+        sources.append(source)
     
     index = VectorStoreIndex.from_documents(docs)
     query_engine = index.as_query_engine()
     res = query_engine.query(query)
+    try:
+        response = {
+            "answer": res.response,
+            "confidence": "",
+            "sources": sources
+        }
+        print(response)
+    except Exception as e:
+        print(e)
+        return "Error: {}".format(str(e)), 500
 
-    res = {
-        "answer": res.response,
-        "confidence":res.source_nodes[0].score,
-        "sources": "",
-        "id": "",
-        "label": "",
-        "description": "",
-        "date": ""
-    }
-
-    return res, 200
+    return response, 200
 
 @app.route("/upload/file", methods=["POST"])
 def upload_file():
     if 'file' not in request.files:
         return "Please send a POST request with a file", 400
+    # Read file to local directory 
+    # [ISSUE] IO reduces efficiency
     filepath = None
     try:
         new_file = request.files["file"]
@@ -112,9 +128,29 @@ def upload_file():
         filename = new_file.filename
         filepath = os.path.join('documents', os.path.basename(filename))
         new_file.save(filepath)
-        # [ISSUE] IO reduces efficiency
         document = SimpleDirectoryReader(input_files=[filepath]).load_data()[0]
-        
+    except Exception as e:
+        print(e)
+        if filepath is not None and os.path.exists(filepath):
+            os.remove(filepath)
+        return "Error: {}".format(str(e)), 500
+    
+    # Store in blob storage
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_ACCESS_KEY)
+        blob_client = blob_service_client.get_blob_client(container=request.form.get("label", None).lower(), blob=document.extra_info['file_name'])
+        print("\nUploading to Azure Storage as blob:\n\t" + document.extra_info['file_name'])
+        with open(file=filepath, mode="rb") as data:
+            blob_client.upload_blob(data)
+        url = blob_client.url
+    except Exception as e: # if file already exists, ask if continue to upload
+        if e.error_code == "BlobAlreadyExists":
+            print("Blob already exists!")
+            return "Blob already Exists!", 409
+        return "Error: {}".format(str(e)), 500
+    
+    # Store in search index
+    try:
         description = request.form.get("description", None)
         file_name = document.extra_info['file_name']
         department = request.form.get("label", None)
@@ -127,6 +163,7 @@ def upload_file():
             "department": department,
             "organization": org,
             "filename": file_name,
+            "url": url,
             "date": str(datetime.date.today()),
             "description_vector": generate_embeddings(description),
             "content_vector": generate_embeddings(content_text)
@@ -134,7 +171,6 @@ def upload_file():
         search_client = SearchClient(endpoint=service_endpoint, index_name=index_name, credential=AzureKeyCredential(key))
         result = search_client.merge_or_upload_documents(documents = [search_index_entry])  
         print("Upload of new document succeeded: {}".format(result[0].succeeded))
-
     except Exception as e:
         print(e)
         if filepath is not None and os.path.exists(filepath):
@@ -166,7 +202,8 @@ def create_search_index(index_client):
         SearchableField(name="content", type=SearchFieldDataType.String),
         SearchableField(name="department", type=SearchFieldDataType.String, filterable=True),
         SearchableField(name="organization", type=SearchFieldDataType.String, filterable=True),
-        SearchableField(name="filename", type=SearchFieldDataType.String, filterable=True),
+        SearchableField(name="filename", type=SearchFieldDataType.String, filterable=True, searchable=True),
+        SearchableField(name="url", type=SearchFieldDataType.String, filterable=True),
         SearchableField(name="date", type=SearchFieldDataType.String, filterable=True),
         SearchField(name="description_vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
                     searchable=True, dimensions=1536, vector_search_configuration="my-vector-config"),
