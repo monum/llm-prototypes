@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Dot } from 'react-animated-dots';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
+import FileCard from "./FileCard";
 
 export default function AnswerCard({response}) {
     const [showSources, setShowSources] = useState(false);
@@ -19,26 +20,7 @@ export default function AnswerCard({response}) {
                         {showSources ? <ExpandLess /> : <ExpandMore />}
                     </div>
                     <Collapse in={showSources} timeout="auto" unmountOnExit>
-                            <div className="d-flex">
-                                <div className="me-2" style={{fontWeight: 'bold'}}>Source: </div>
-                                <div>{` ${response.sources}`}</div>
-                            </div>
-                            <div className="d-flex">
-                                <div className="me-2" style={{fontWeight: 'bold'}}>Id: </div>
-                                <div>{` ${response.id}`}</div>
-                            </div>
-                            <div className="d-flex">
-                                <div className="me-2" style={{fontWeight: 'bold'}}>Label: </div>
-                                <div>{` ${response.label[0]}`}</div>
-                            </div>
-                            <div className="d-flex">
-                                <div className="me-2" style={{fontWeight: 'bold'}}>Description: </div>
-                                <div>{` ${response.description[0]}`}</div>
-                            </div>
-                            <div className="d-flex">
-                                <div className="me-2" style={{fontWeight: 'bold'}}>Last uploaded: </div>
-                                <div>{` ${response.date[0]}`}</div>
-                            </div>
+                        {response.sources.map((source) => (<FileCard file={source}/>))}
                     </Collapse>
                 </div>}
             </div>
