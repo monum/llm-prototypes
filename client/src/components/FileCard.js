@@ -34,6 +34,7 @@ function Content({content}) {
 }
 
 export default function FileCard({file}) {
+    const metadata = file.node.extra_info;
     return (
         <Card className="ps-3 pe-3 pt-2 pb-2" variant="outlined" style={{textAlign: 'left'}}>
             {/* {'date': '2023-08-09', 
@@ -48,14 +49,16 @@ export default function FileCard({file}) {
             <div className="d-flex">
                 <div className="" style={{fontWeight: 'bold'}}>Filename</div>
                 <div>{` `}</div>
-                {file.filename}
-                <a href={file.url}> <FileDownloadIcon/> </a>
+                {metadata.filename}
+                <a href={metadata.url}> <FileDownloadIcon/> </a>
             </div>
-            <Field field_name={"Category"} field_content={[file.department]}/>
-            <Field field_name={"Organization"} field_content={[file.organization]}/>
+            <Field field_name={"Category"} field_content={[metadata.department]}/>
+            <Field field_name={"Organization"} field_content={[metadata.organization]}/>
             {/* <Field field_name={"Relevance"} field_content={[file.search.score]}/> */}
-            <Field field_name={"Date"} field_content={[file.date]}/>
-            <Content content={file.content}/>
+            <Field field_name={"Date"} field_content={[metadata.date]}/>
+            <Field field_name={"Weight"} field_content={[file.score]}/>
+            <Field field_name={"Relavance"} field_content={[metadata.relavance]}/>
+            <Content content={file.node.text}/>
         </Card>
     )
 }

@@ -69,9 +69,6 @@ def query():
         search_text=query,  
         select=["department", "organization", "filename", "date", "content", "url"],
     )
-    # for result in results:
-    #     print(result)
-    
     # {'date': '2023-08-09', 'department': '', 'filename': 'Fresh Start.pdf', 'organization': '', '@search.score': 1.9620056, '@search.reranker_score': None, '@search.highlights': None, '@search.captions': None}
 
     # LLM response
@@ -82,22 +79,26 @@ def query():
         doc = Document(
             text=result["content"]
         )
-        doc.metadata = {
-            "department": result["department"],
-            "organization":result["organization"],
-            "filename": result["filename"],
-            "date": result["date"]
-        }
-        source = {
+        doc.extra_info = {
             "department": result["department"],
             "organization":result["organization"],
             "filename": result["filename"],
             "url": result["url"],
             "date": result["date"],
-            "content": result["content"]
+            # "content": result["content"],
+            "relavance": result['@search.score']
         }
+        # source = {
+        #     "department": result["department"],
+        #     "organization":result["organization"],
+        #     "filename": result["filename"],
+        #     "url": result["url"],
+        #     "date": result["date"],
+        #     "content": result["content"],
+        #     "score": result['@search.score']
+        # }
         docs.append(doc)
-        sources.append(source)
+        # sources.append(source)
     
     index = VectorStoreIndex.from_documents(docs)
     query_engine = index.as_query_engine()
@@ -105,10 +106,9 @@ def query():
     try:
         response = {
             "answer": res.response,
-            "confidence": "",
-            "sources": sources
+            "confidence": "", 
+            "sources": res.source_nodes
         }
-        print(response)
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500

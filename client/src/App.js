@@ -39,6 +39,7 @@ function App() {
       .then((res) => {
         const {data} = res;
         // update newDialogue with the response returned from GPT
+        console.log("res is: ", res)
         newDialogue.response = data;
 
         setDialogues([...dialogues, newDialogue])
