@@ -67,11 +67,11 @@ function App() {
           }
             {showFiles ? 
               <div className='col-2'> {/* offcanvas offcanvas-start show*/}
-                {/* <Files showFiles={showFiles} setShowFiles={setShowFiles}/> */}
+                <Files showFiles={showFiles} setShowFiles={setShowFiles}/>
               </div>
             : 
               <div className="btn" onClick={() => {setShowFiles(true)}} style={{height: '50px'}}>
-                {/* <ListIcon/> */}
+                <ListIcon/>
               </div>
             }
         {/* </div> */}

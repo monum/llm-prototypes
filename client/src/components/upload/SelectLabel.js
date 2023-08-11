@@ -15,7 +15,7 @@ export default function SelectLabel({setLabel}) {
     ]
     return (
         <>
-            <p>Select a category</p>
+            <p>Select a department</p>
             <select onChange={e => setLabel(e.target.value)}>
                 {labels.map(label => <option>{label}</option>)}
             </select>

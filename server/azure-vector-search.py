@@ -180,6 +180,21 @@ def upload_file():
     os.remove(filepath)
     return "File uploaded!", 200
 
+@app.route("/get_files", methods=["GET"])
+def get_files():
+    try:
+        label = request.args.get("label")
+        blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_ACCESS_KEY)
+        container_client = blob_service_client.get_container_client(container= label) 
+        blob_list = container_client.list_blobs()
+    except Exception as e:
+        print(e)
+        return "Error: {}".format(str(e)), 500
+    blobs = []
+    for blob in blob_list:
+        blobs.append({"name": blob.name}) # get url
+    return blobs, 200
+
 ########################### Embeddings & Indexing #########################
 def generate_embeddings(text):
     '''

@@ -71,12 +71,8 @@ export default function File({setUploadMethod}) {
 						{selectedFile.lastModifiedDate.toLocaleDateString()}
 					</p>
 
-                    <p>Choose a label:</p>
                     <SelectLabel setLabel={setLabel}/>
-
-                    <p>Choose an organization:</p>
                     <SelectOrg setOrg={setOrg}/>
-
                     <TextField 
                         className="m-3" 
                         id="filled-basic" 

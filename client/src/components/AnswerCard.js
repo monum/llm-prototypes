@@ -12,8 +12,8 @@ export default function AnswerCard({response}) {
             {response ? 
             <div>
                 {/* {response.sources && <h5>Answer:</h5>} */}
-                <div>{response.answer}</div>
-                {response.sources &&
+                <div>{response.answer ? response.answer : "Sorry, I do not know the answer."}</div>
+                {response.answer && response.sources &&
                 <div>
                     <div className="d-flex" onClick={() => setShowSources(!showSources)}>
                         <div>show sources</div>

@@ -21,7 +21,7 @@ function Content({content}) {
     return (
         <div>
             <div className="d-flex" onClick={() => setShowContent(!showContent)}>
-                <div className="" style={{fontWeight: 'bold'}}>Content</div>
+                <div className="" style={{fontWeight: 'bold'}}>Preview</div>
                 {showContent ? <ExpandLess /> : <ExpandMore />}
             </div>
             <Collapse in={showContent} timeout="auto" unmountOnExit>
@@ -51,7 +51,7 @@ export default function FileCard({file}) {
                 {file.filename}
                 <a href={file.url}> <FileDownloadIcon/> </a>
             </div>
-            <Field field_name={"Deparment"} field_content={[file.department]}/>
+            <Field field_name={"Category"} field_content={[file.department]}/>
             <Field field_name={"Organization"} field_content={[file.organization]}/>
             {/* <Field field_name={"Relevance"} field_content={[file.search.score]}/> */}
             <Field field_name={"Date"} field_content={[file.date]}/>
