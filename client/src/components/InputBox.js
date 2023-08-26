@@ -1,6 +1,6 @@
 import { IconButton, InputAdornment, TextField } from "@mui/material";
 import SendIcon from '@mui/icons-material/Send';
-import { red } from '@mui/material/colors';
+import customs from "../customizables";
 
 export default function InputBox({question, setQuestion, addQuestion}) {
     const handleKeyDown = (key) => {
@@ -12,13 +12,13 @@ export default function InputBox({question, setQuestion, addQuestion}) {
     return (
         <TextField 
         className="mt-4"
-        label='Ask us a question!' 
+        label='' 
         value={question} 
         onChange={(e) => setQuestion(e.target.value)} 
         onKeyDown={(e) => handleKeyDown(e.key)}
         style={{width:'87%', boxShadow:'10px'}}
         // multiline
-        focused
+        // focused
         InputProps={{
           endAdornment: 
           <InputAdornment position="end">
@@ -26,6 +26,9 @@ export default function InputBox({question, setQuestion, addQuestion}) {
               aria-label="ask question"
               onClick={addQuestion}
               edge="end"
+              style={{
+                color: question === "" ? "" : customs.sidebarToggleButtonColor
+              }}
             >
               <SendIcon/>
             </IconButton>

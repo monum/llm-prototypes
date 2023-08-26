@@ -16,7 +16,7 @@ export default function AnswerCard({response}) {
                 {response.answer && response.sources &&
                 <div>
                     <div className="d-flex" onClick={() => setShowSources(!showSources)}>
-                        <div>show sources</div>
+                        <div>{`show sources (`}<span>{response.sources.length}</span>{`) `}</div>
                         {showSources ? <ExpandLess /> : <ExpandMore />}
                     </div>
                     <Collapse in={showSources} timeout="auto" unmountOnExit>

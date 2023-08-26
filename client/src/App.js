@@ -1,29 +1,22 @@
-import logo from './logo.svg';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.css'
 import {useState} from 'react'
-import Dialogue from './components/Dialogue';
+import Dialogue from './components/q&a/Dialogue';
 import http from './services/HttpServices';
-import NavBar from './components/NavBar';
-import Sessions from './components/Sessions';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import MenuIcon from '@mui/icons-material/Menu';
-import { Container, Divider, IconButton, InputAdornment, Link, Stack, TextField } from '@mui/material';
-import SideBar from './SideBar';
+import {IconButton, Stack} from '@mui/material';
+import SideBar from './components/SideBar';
 import InputBox from './components/InputBox';
-import Response from './components/Response';
+import Response from './components/q&a/Response';
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css';
-import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
-import Files from './Files';
 import ListIcon from '@mui/icons-material/List';
+import customs from './customizables';
 
 function App() {
 
   const [dialogues, setDialogues] = useState([]);
   const [question, setQuestion] = useState('');
   const [showSessions, setShowSessions] = useState(false);
-  const [showFiles, setShowFiles] = useState(false);
 
   const addQuestion = () => {
     if (question) {
@@ -39,7 +32,6 @@ function App() {
       .then((res) => {
         const {data} = res;
         // update newDialogue with the response returned from GPT
-        console.log("res is: ", res)
         newDialogue.response = data;
 
         setDialogues([...dialogues, newDialogue])
@@ -54,42 +46,40 @@ function App() {
   return (
     <div className="App">
       <ToastContainer />
-      {/* <NavBar/> */}
       <div className='d-flex' >
-        {/* <div> */}
           {showSessions ? 
-            <div className='col-2'> {/* offcanvas offcanvas-start show*/}
+            <div className='col-2'>
               <SideBar showSessions={showSessions} setShowSessions={setShowSessions} />
             </div>
           : 
-            <div className="btn" onClick={() => setShowSessions(!showSessions)} style={{height: '50px'}}>
-              <PlaylistAddIcon/>
-            </div>
+            <IconButton style={{
+              borderRadius: 0,
+              color:"#ffffff",
+              backgroundColor: customs.sidebarToggleButtonColor,
+              padding: "18px 18px",
+              height: "50px",
+              width: "50px",
+              fontSize: "18px"
+          }} variant="contained" onClick={() => setShowSessions(!showSessions)}>
+              <ListIcon/>
+            </IconButton>
           }
-            {showFiles ? 
-              <div className='col-2'> {/* offcanvas offcanvas-start show*/}
-                <Files showFiles={showFiles} setShowFiles={setShowFiles}/>
-              </div>
-            : 
-              <div className="btn" onClick={() => {setShowFiles(true)}} style={{height: '50px'}}>
-                <ListIcon/>
-              </div>
-            }
-        {/* </div> */}
-        <div className={showSessions ? 'col-8' : 'col-12'}> {/* style={{minHeight: '100%', height:'100%'}} */}
           <div className='d-flex justify-content-center'>
-            <div className={showSessions ? 'col-10' : 'col-7'}>
-              <h3 class="mt-2"> 🤖 Boston LLM </h3>
-              <Stack style={{maxHeight: '650px', height:'800px', overflow: 'auto'}} className="mt-4"> 
-                <Response response={{answer: "Hi there! How can I help you?"}}/>
-                {dialogues.map((dialogue, i) => <Dialogue dialogue={dialogue} showFeedbackIcons={i == dialogues.length - 1}/>)}
+            <div className="col-7" style={{position: "fixed", right: "20%"}}>
+              <Stack style={{maxHeight: '690px', height:'900px', overflow: 'hidden'}} className="mt-4"> 
+                <div style={{ 
+                  overflowY: 'scroll', 
+                  width: '100%', 
+                  height: '100%', 
+                  paddingRight: '100px', 
+                  boxSizing: 'content-box'}}>
+                  <Response response={{answer: "Hi there! How can I help you?"}}/>
+                  {dialogues.map((dialogue, i) => <Dialogue dialogue={dialogue} showFeedbackIcons={i == dialogues.length - 1}/>)}
+                </div>
               </Stack>
-              {/** style={{position: 'fixed', left: '30%', bottom: '10%'}}*/}
               <InputBox question={question} setQuestion={setQuestion} addQuestion={addQuestion} />
             </div>
           </div>
-
-        </div>
       </div>
     </div>
   );

@@ -1,17 +1,11 @@
 import os  
-import json  
 import datetime
-import re
 import openai  
 from flask import Flask
 from flask import request
 from flask_cors import CORS
 
-from langchain.text_splitter import CharacterTextSplitter
 from llama_index import SimpleDirectoryReader
-from langchain.vectorstores.azuresearch import AzureSearch
-from langchain.embeddings import OpenAIEmbeddings
-from llama_index.storage.storage_context import StorageContext
 from llama_index import VectorStoreIndex
 from llama_index import Document
 from azure.storage.blob import BlobServiceClient
@@ -28,26 +22,29 @@ from azure.search.documents.indexes.models import (
     SimpleField,  
     SearchableField,  
     SearchIndex,  
-    SemanticConfiguration,  
-    PrioritizedFields,  
-    SemanticField,  
     SearchField,  
-    SemanticSettings,  
     VectorSearch,  
     VectorSearchAlgorithmConfiguration,  
 )  
 import config
 
+from llama_index import download_loader
+from llama_index import Document
+from llama_index.node_parser import SimpleNodeParser
+
 ########################### Set up ############################
 # Set up azure cognitive search
 service_endpoint = config.AZURE_SEARCH_ENDPOINT
-index_name = "azure-search"
+index_name = config.AZURE_SEARCH_INDEX_NAME
 key = config.AZURE_SEARCH_ADMIN_KEY
 
 # Set up OpenAI
-os.environ['OPENAI_API_KEY'] = config.OPENAI_API_KEY # remove key when push to remote
+os.environ['OPENAI_API_KEY'] = config.OPENAI_API_KEY
+# os.environ["OPENAI_API_TYPE"] = "azure"
+# os.environ["OPENAI_API_VERSION"] = "2023-05-15"
+# os.environ["OPENAI_API_BASE"] = config.AZURE_OPENAI_ENDPOINT
+# os.environ["OPENAI_API_KEY"] = config.AZURE_OPENAI_API_KEY
 openai.api_key = config.OPENAI_API_KEY 
-model: str = "text-embedding-ada-002"
 
 # Set up flask app
 app = Flask(__name__)
@@ -59,17 +56,19 @@ def query():
     request_data = request.get_json()
     query = request_data['question']
     if query is None:
-        return "No text found:(", 400
+        return "No text found:(", 201
     print("User query: " + query)
 
     # Source file retrieval
-    search_client = SearchClient(service_endpoint, index_name, credential=AzureKeyCredential(key))
-    # vector = Vector(value=generate_embeddings(query), k=3, fields="contentVector")
-    results = search_client.search(  
-        search_text=query,  
-        select=["department", "organization", "filename", "date", "content", "url"],
-    )
-    # {'date': '2023-08-09', 'department': '', 'filename': 'Fresh Start.pdf', 'organization': '', '@search.score': 1.9620056, '@search.reranker_score': None, '@search.highlights': None, '@search.captions': None}
+    try: 
+        search_client = SearchClient(service_endpoint, index_name, credential=AzureKeyCredential(key))
+        results = search_client.search(  
+            search_text=query,  
+            select=["department", "organization", "filename", "date", "content", "url"],
+        )
+    except Exception as e:
+        print(e)
+        return "Error: failed to retrieve relevant source files", 500
 
     # LLM response
     # construct documents from source files
@@ -86,7 +85,7 @@ def query():
             "url": result["url"],
             "date": result["date"],
             # "content": result["content"],
-            "relavance": result['@search.score']
+            "relevance": result['@search.score']
         }
         # source = {
         #     "department": result["department"],
@@ -99,11 +98,10 @@ def query():
         # }
         docs.append(doc)
         # sources.append(source)
-    
-    index = VectorStoreIndex.from_documents(docs)
-    query_engine = index.as_query_engine()
-    res = query_engine.query(query)
     try:
+        index = VectorStoreIndex.from_documents(docs)
+        query_engine = index.as_query_engine()
+        res = query_engine.query(query)
         response = {
             "answer": res.response,
             "confidence": "", 
@@ -111,16 +109,57 @@ def query():
         }
     except Exception as e:
         print(e)
-        return "Error: {}".format(str(e)), 500
+        return "Error: failed to generate response from source files", 500
 
     return response, 200
+
+@app.route("/upload/url", methods=["POST"])
+def upload_url():
+    url = request.form.get("url", None)
+    # Load data from url using LlamaIndex loader
+    SimpleWebPageReader = download_loader("SimpleWebPageReader")
+    loader = SimpleWebPageReader()
+    documents = loader.load_data(urls=[url])
+
+    node_parser = SimpleNodeParser.from_defaults(chunk_size=config.NODE_PARSER_CHUNK_SIZE, chunk_overlap=config.NODE_PARSER_CHUNK_OVERLAP)
+    nodes = node_parser.get_nodes_from_documents(documents)
+
+    # Store in Cognitive Search index
+    try:
+        index_docs = []
+        for document in nodes:
+            description = request.form.get("description", None)
+            department = request.form.get("label", None)
+            org = request.form.get("org", None)
+            content_text = document.text
+            search_index_entry = {
+                "id": document.doc_id,
+                "description": description,
+                "content": content_text,
+                "department": department,
+                "organization": org,
+                "filename": url,
+                "url": url,
+                "date": str(datetime.date.today()),
+                "description_vector": generate_embeddings(description),
+                "content_vector": generate_embeddings(content_text)
+            }
+            index_docs.append(search_index_entry)
+        search_client = SearchClient(endpoint=service_endpoint, index_name=index_name, credential=AzureKeyCredential(key))
+        result = search_client.merge_or_upload_documents(documents = index_docs)  
+        print("Upload of new document succeeded: {}".format(result[0].succeeded))
+    except Exception as e:
+        print(e)
+        return "Error: {}".format(str(e)), 500
+    
+    return "Url uploaded!", 200
+
 
 @app.route("/upload/file", methods=["POST"])
 def upload_file():
     if 'file' not in request.files:
         return "Please send a POST request with a file", 400
     # Read file to local directory 
-    # [ISSUE] IO reduces efficiency
     filepath = None
     try:
         new_file = request.files["file"]
@@ -128,7 +167,10 @@ def upload_file():
         filename = new_file.filename
         filepath = os.path.join('documents', os.path.basename(filename))
         new_file.save(filepath)
-        document = SimpleDirectoryReader(input_files=[filepath]).load_data()[0]
+
+        documents = SimpleDirectoryReader(input_files=[filepath]).load_data()
+        node_parser = SimpleNodeParser.from_defaults(chunk_size=8000, chunk_overlap=200)
+        nodes = node_parser.get_nodes_from_documents(documents)
     except Exception as e:
         print(e)
         if filepath is not None and os.path.exists(filepath):
@@ -138,38 +180,41 @@ def upload_file():
     # Store in blob storage
     try:
         blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_ACCESS_KEY)
-        blob_client = blob_service_client.get_blob_client(container=request.form.get("label", None).lower(), blob=document.extra_info['file_name'])
-        print("\nUploading to Azure Storage as blob:\n\t" + document.extra_info['file_name'])
+        blob_client = blob_service_client.get_blob_client(container=config.AZURE_STORAGE_CONTAINER, blob=documents[0].extra_info['file_name'])
+        print("\nUploading to Azure Storage as blob:\n\t" + documents[0].extra_info['file_name'])
         with open(file=filepath, mode="rb") as data:
             blob_client.upload_blob(data)
         url = blob_client.url
     except Exception as e: # if file already exists, ask if continue to upload
         if e.error_code == "BlobAlreadyExists":
             print("Blob already exists!")
-            return "Blob already Exists!", 409
+            return "Blob already Exists!", 201
         return "Error: {}".format(str(e)), 500
     
-    # Store in search index
+    # Store in Cognitive Search index
     try:
-        description = request.form.get("description", None)
-        file_name = document.extra_info['file_name']
-        department = request.form.get("label", None)
-        org = request.form.get("org", None)
-        content_text = document.text
-        search_index_entry = {
-            "id": document.doc_id,
-            "description": description,
-            "content": content_text,
-            "department": department,
-            "organization": org,
-            "filename": file_name,
-            "url": url,
-            "date": str(datetime.date.today()),
-            "description_vector": generate_embeddings(description),
-            "content_vector": generate_embeddings(content_text)
-        }
+        index_docs = []
+        for document in nodes:
+            description = request.form.get("description", None)
+            file_name = document.extra_info['file_name']
+            department = request.form.get("label", None)
+            org = request.form.get("org", None)
+            content_text = document.text
+            search_index_entry = {
+                "id": document.doc_id,
+                "description": description,
+                "content": content_text,
+                "department": department,
+                "organization": org,
+                "filename": file_name,
+                "url": url,
+                "date": str(datetime.date.today()),
+                "description_vector": generate_embeddings(description),
+                "content_vector": generate_embeddings(content_text)
+            }
+            index_docs.append(search_index_entry)
         search_client = SearchClient(endpoint=service_endpoint, index_name=index_name, credential=AzureKeyCredential(key))
-        result = search_client.merge_or_upload_documents(documents = [search_index_entry])  
+        result = search_client.merge_or_upload_documents(documents = index_docs)  
         print("Upload of new document succeeded: {}".format(result[0].succeeded))
     except Exception as e:
         print(e)
@@ -183,17 +228,24 @@ def upload_file():
 @app.route("/get_files", methods=["GET"])
 def get_files():
     try:
+        # blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_ACCESS_KEY)
+        # container_client = blob_service_client.get_container_client(container=config.AZURE_STORAGE_CONTAINER) 
+        # blob_list = container_client.find_blobs_by_tags("category")
         label = request.args.get("label")
-        blob_service_client = BlobServiceClient.from_connection_string(config.AZURE_STORAGE_ACCESS_KEY)
-        container_client = blob_service_client.get_container_client(container= label) 
-        blob_list = container_client.list_blobs()
+        search_client = SearchClient(endpoint=service_endpoint, index_name=index_name, credential=AzureKeyCredential(key))
+        results = search_client.search(
+            search_text="*",
+            filter="department eq '"+label+"'",
+            select="filename, url"
+        )
     except Exception as e:
         print(e)
         return "Error: {}".format(str(e)), 500
-    blobs = []
-    for blob in blob_list:
-        blobs.append({"name": blob.name}) # get url
-    return blobs, 200
+    files = []
+    for result in results:
+        print(result)
+        files.append({"name": result["filename"], "url": result["url"]}) # get url
+    return files, 200
 
 ########################### Embeddings & Indexing #########################
 def generate_embeddings(text):
@@ -202,14 +254,13 @@ def generate_embeddings(text):
     input: text string to be embedded
     output: text embeddings
     '''
-    response = openai.Embedding.create(
-        input=text, engine="text-embedding-ada-002")
+    response = openai.Embedding.create(input=text, engine=config.OPENAI_EMBEDDING_MODEL)
     embeddings = response['data'][0]['embedding']
     return embeddings
 
 def create_search_index(index_client):
     '''
-    Create a search index if does not exist
+    Create a search index with config settings
     '''
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True, sortable=True, filterable=True, facetable=True),

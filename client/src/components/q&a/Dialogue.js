@@ -1,6 +1,6 @@
 import Response from "./Response";
 import Question from "./Question";
-import Feedback from "./Feedback";
+import Feedback from "../Feedback";
 
 export default function Dialogue({dialogue, showFeedbackIcons}) {
     return (
