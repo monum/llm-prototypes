@@ -1,7 +1,0 @@
-{
-    "server_host": "127.0.0.1",
-    "server_port": 5601,
-    "AIRTABLE_BASE_ID": "",
-    "AIRTABLE_TABLE_NAME": "",
-    "AIRTABLE_API_KEY": ""
-}

@@ -1,6 +1,8 @@
 .DS_Store
 /client/node_modules
+/client/src/config.json
 
+/server/config.py
 /server/credentials.json
 /server/__pycache__
 /server/store
