@@ -14,9 +14,15 @@ axios.interceptors.response.use(null, (e) => {
   return Promise.reject(e);
 });
 
+const testConnection = async (link) => {
+  const {status} = await fetch(link)
+  return status;
+}
+
 export default {
   get: axios.get,
   post: axios.post,
   put: axios.put,
   delete: axios.delete,
+  testConnection: testConnection
 };

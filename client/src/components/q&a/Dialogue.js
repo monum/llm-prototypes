@@ -1,6 +1,6 @@
-import Answer from "./Answer";
+import Response from "./Response";
 import Question from "./Question";
-import Feedback from "./Feedback";
+import Feedback from "../Feedback";
 
 export default function Dialogue({dialogue, showFeedbackIcons}) {
     return (
@@ -9,10 +9,10 @@ export default function Dialogue({dialogue, showFeedbackIcons}) {
                 <div className="mb-3">
                     <Question question={dialogue.question}/>
                 </div>
-                <Answer answer={dialogue.answer}/>
+                <Response response={dialogue.response}/>
             </div>
             <div className="d-flex justify-content-center">
-                {dialogue.answer && 
+                {dialogue.response && 
                 showFeedbackIcons && 
                 <Feedback dialogue={dialogue}/>}
             </div>
